@@ -1,0 +1,11 @@
+{
+  "packageName": "kr.kkaeumbaram",
+  "appName": "깨움바람",
+  "description": "택배 기사 졸음 방지. 환기, 안부 확인, 쉼터 안내.",
+  "functions": [
+    {"action": "VENT_NOW", "description": "지금 바로 환기 버스트를 실행한다", "utterances": ["환기해줘", "바람 좀 넣어줘", "졸려"]},
+    {"action": "I_AM_FINE", "description": "안부 질문에 괜찮다고 답한다", "utterances": ["괜찮아", "다했어", "안 졸려"]},
+    {"action": "GO_REST", "description": "가장 가까운 졸음쉼터를 경유지로 넣는다", "utterances": ["쉼터 가자", "좀 쉬자", "쉬어 갈래"]},
+    {"action": "STRONG_MODE", "description": "세게 깨우기 모드를 켠다", "utterances": ["세게 깨워줘", "오늘 밤샘이야"], "parameters": {"on": "boolean"}}
+  ]
+}
