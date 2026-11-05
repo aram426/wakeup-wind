@@ -39,8 +39,8 @@ class VoiceFactory(private val context: Context, private val log: (String) -> Un
 
 class PleosVoice(private val context: Context, private val log: (String) -> Unit) : Voice {
     override val engineName = "Pleos TTS/STT"
-    private val tts = TextToSpeech(context.applicationContext, TtsMode.HYBRID)
-    private val stt = SpeechToText(context.applicationContext, SttMode.HYBRID)
+    private val tts = TextToSpeech(context.applicationContext, TtsMode.ON_DEVICE)
+    private val stt = SpeechToText(context.applicationContext, SttMode.ON_DEVICE)
     private val audio = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private var sayDone: () -> Unit = {}
     private var heard: ((String?) -> Unit)? = null
@@ -68,7 +68,7 @@ class PleosVoice(private val context: Context, private val log: (String) -> Unit
         runCatching {
             tts.initialize(object : OnInitializeListener {
                 override fun onSuccess() {
-                    tts.setLocale(Locale.KOREAN); tts.addEventListener(ttsEvents)
+                    tts.setLocale(Locale.KOREA); tts.addEventListener(ttsEvents)
                     runCatching {
                         tts.registerApp(BuildConfig.PLEOS_CLIENT_ID, BuildConfig.PLEOS_CLIENT_SECRET, object : ai.pleos.playground.tts.listener.OnServerConnectionListener {
                             override fun onConnected() { log("TTS 서버 연결") }
@@ -78,7 +78,7 @@ class PleosVoice(private val context: Context, private val log: (String) -> Unit
                     runCatching {
                         stt.initialize(object : ai.pleos.playground.stt.listener.OnInitializeListener {
                             override fun onSuccess() {
-                                stt.setLocale(Locale.KOREAN); stt.addListener(sttResults)
+                                stt.setLocale(Locale.KOREA); stt.addListener(sttResults)
                                 runCatching {
                                     stt.registerApp(BuildConfig.PLEOS_CLIENT_ID, BuildConfig.PLEOS_CLIENT_SECRET, object : ai.pleos.playground.stt.listener.OnServerConnectionListener {
                                         override fun onConnected() { log("STT 서버 연결") }
@@ -119,7 +119,7 @@ class AndroidVoice(private val context: Context, private val log: (String) -> Un
     init {
         tts = android.speech.tts.TextToSpeech(context.applicationContext) { st ->
             ready = st == android.speech.tts.TextToSpeech.SUCCESS
-            if (ready) runCatching { tts.setLanguage(Locale.KOREAN) }
+            if (ready) runCatching { tts.setLanguage(Locale.KOREA) }
             log(if (ready) "Android TTS 준비" else "Android TTS 없음")
             pending?.let { (t, d) -> pending = null; say(t, d) }
         }
