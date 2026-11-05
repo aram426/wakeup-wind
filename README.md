@@ -46,7 +46,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 | 실내등 | ON/OFF 되나 가끔 50001 오류 |
 | Pleos TTS ON_DEVICE | `ON_DEVICE_ENGINE_ERROR`. 에뮬레이터엔 온디바이스 엔진이 없음 → HYBRID/SERVER + My Project 앱 등록(registerApp) 필요. Android 기본 TTS도 없음 |
 | Pleos STT | 권한 `STT_SERVICE` 선언 후 초기화됨, 마이크 실측은 아직 |
-| 주행 중(기어 D) 앱 화면 | 기본으로는 시스템이 "주행 중에는 사용할 수 없습니다"로 가림. 매니페스트 `distractionOptimized=true` 메타데이터를 넣으니 화면이 유지됨(제어는 가림 상태에서도 실행됐음). 심사 때 이 플래그 사용이 허용되는지는 확인 필요 |
+| 주행 중(기어 D) 앱 화면 | 매니페스트 `distractionOptimized=true` 메타데이터로 유지됨(홈 화면이 `distractionOptimized: true`로 인식). 단, 기어가 D로 바뀌는 순간 앱 위에 권한 팝업 같은 시스템 창이 떠 있으면 그 작업 전체가 "주행 중에는 사용할 수 없습니다"로 가려지고 다시 풀리지 않는다 → 첫 실행·권한 허용은 반드시 P에서 끝낸 뒤 D로. 가려지면 P로 돌리고 앱을 닫았다 다시 연다 |
 
 ### Virtual Console을 터미널에서
 
