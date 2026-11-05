@@ -1,0 +1,12 @@
+# 이 파일을 복사해서 local.properties 로 이름을 바꾸고 값을 채운다. local.properties 는 깃에 올라가지 않는다.
+#   윈도우: copy local.properties.example local.properties
+#   맥:     cp local.properties.example local.properties
+
+# Android SDK 경로. 윈도우는 역슬래시를 두 번 쓰고 콜론 앞에도 역슬래시를 넣는다.
+sdk.dir=C\:\\Users\\<윈도우 사용자 이름>\\AppData\\Local\\Android\\Sdk
+# 맥이면 위 줄 대신:
+# sdk.dir=/Users/<사용자 이름>/Library/Android/sdk
+
+# Pleos My Project 콘솔(https://pleos.ai/playground/console/projects) > 프로젝트 > Project Information > SDK
+pleos.clientId=
+pleos.clientSecret=

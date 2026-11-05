@@ -12,6 +12,6 @@ case "$1" in
           curl -s -m 5 -X POST "$C/vehicle/ev-battery?field=charge_switch&value=$v" | head -c 120; echo ;;
   soc)    beat; curl -s -m 5 -X POST "$C/vehicle/ev-battery?field=soc&value=$2" | head -c 120; echo ;;
   hvac)   beat; curl -s -m 5 -X POST "$C/vehicle/hvac?$2" | head -c 200; echo ;;
-  state)  curl -s -m 5 "$C/vehicle/state" | python3 -c "import sys,json; d=json.load(sys.stdin); print('gear', (d['gear']['actual'] or {}).get('value')); print('hvac power', d['hvac']['power_on'], 'fan', d['hvac']['fan_speed'], 'recirc', d['hvac']['recirc_on']); print('windows', d['body']['windows']); print('ambient', d['body']['ambient_light']); print('ev', {k: d['ev_battery'].get(k) for k in ('state_of_charge','charging_door_opened','charging_activated')})" ;;
+  state)  curl -s -m 5 "$C/vehicle/state" | ${PY:-$(command -v python3 || echo python)} -c "import sys,json; d=json.load(sys.stdin); print('gear', (d['gear']['actual'] or {}).get('value')); print('hvac power', d['hvac']['power_on'], 'fan', d['hvac']['fan_speed'], 'recirc', d['hvac']['recirc_on']); print('windows', d['body']['windows']); print('ambient', d['body']['ambient_light']); print('ev', {k: d['ev_battery'].get(k) for k in ('state_of_charge','charging_door_opened','charging_activated')})" ;;
   *) echo "usage: $0 gear Drive|Park|Neutral|Reverse | charge on|off | soc N | hvac k=v | state"; exit 1 ;;
 esac
