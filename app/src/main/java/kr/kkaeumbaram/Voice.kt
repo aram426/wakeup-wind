@@ -39,8 +39,8 @@ class VoiceFactory(private val context: Context, private val log: (String) -> Un
 
 class PleosVoice(private val context: Context, private val log: (String) -> Unit) : Voice {
     override val engineName = "Pleos TTS/STT"
-    private val tts = TextToSpeech(context.applicationContext, TtsMode.ON_DEVICE)
-    private val stt = SpeechToText(context.applicationContext, SttMode.ON_DEVICE)
+    private val tts = TextToSpeech(context.applicationContext, TtsMode.HYBRID)
+    private val stt = SpeechToText(context.applicationContext, SttMode.HYBRID)
     private val audio = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private var sayDone: () -> Unit = {}
     private var heard: ((String?) -> Unit)? = null
@@ -70,8 +70,23 @@ class PleosVoice(private val context: Context, private val log: (String) -> Unit
                 override fun onSuccess() {
                     tts.setLocale(Locale.KOREAN); tts.addEventListener(ttsEvents)
                     runCatching {
+                        tts.registerApp(BuildConfig.PLEOS_CLIENT_ID, BuildConfig.PLEOS_CLIENT_SECRET, object : ai.pleos.playground.tts.listener.OnServerConnectionListener {
+                            override fun onConnected() { log("TTS 서버 연결") }
+                            override fun onFailed(e: ai.pleos.playground.tts.constant.ErrorType) { log("TTS 서버 등록 실패 $e") }
+                        })
+                    }.onFailure { log("TTS registerApp 예외 ${it.message}") }
+                    runCatching {
                         stt.initialize(object : ai.pleos.playground.stt.listener.OnInitializeListener {
-                            override fun onSuccess() { stt.setLocale(Locale.KOREAN); stt.addListener(sttResults); log("Pleos 음성 준비"); ok() }
+                            override fun onSuccess() {
+                                stt.setLocale(Locale.KOREAN); stt.addListener(sttResults)
+                                runCatching {
+                                    stt.registerApp(BuildConfig.PLEOS_CLIENT_ID, BuildConfig.PLEOS_CLIENT_SECRET, object : ai.pleos.playground.stt.listener.OnServerConnectionListener {
+                                        override fun onConnected() { log("STT 서버 연결") }
+                                        override fun onFailed(e: ai.pleos.playground.stt.constant.ErrorType) { log("STT 서버 등록 실패 $e") }
+                                    })
+                                }.onFailure { log("STT registerApp 예외 ${it.message}") }
+                                log("Pleos 음성 준비"); ok()
+                            }
                             override fun onFailure(e: ai.pleos.playground.stt.constant.ErrorType) { log("Pleos STT 초기화 실패 $e"); ok() /* TTS만이라도 */ }
                         })
                     }.onFailure { log("Pleos STT 예외 ${it.message}"); ok() }
