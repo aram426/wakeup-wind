@@ -68,10 +68,25 @@ class PleosVoice(private val context: Context, private val log: (String) -> Unit
         runCatching {
             tts.initialize(object : OnInitializeListener {
                 override fun onSuccess() {
-                    tts.setLocale(Locale.KOREAN); tts.addEventListener(ttsEvents)
+                    tts.setLocale(Locale.KOREA); tts.addEventListener(ttsEvents)
+                    runCatching {
+                        tts.registerApp(BuildConfig.PLEOS_CLIENT_ID, BuildConfig.PLEOS_CLIENT_SECRET, object : ai.pleos.playground.tts.listener.OnServerConnectionListener {
+                            override fun onConnected() { log("TTS 서버 연결") }
+                            override fun onFailed(e: ai.pleos.playground.tts.constant.ErrorType) { log("TTS 서버 등록 실패 $e") }
+                        })
+                    }.onFailure { log("TTS registerApp 예외 ${it.message}") }
                     runCatching {
                         stt.initialize(object : ai.pleos.playground.stt.listener.OnInitializeListener {
-                            override fun onSuccess() { stt.setLocale(Locale.KOREAN); stt.addListener(sttResults); log("Pleos 음성 준비"); ok() }
+                            override fun onSuccess() {
+                                stt.setLocale(Locale.KOREA); stt.addListener(sttResults)
+                                runCatching {
+                                    stt.registerApp(BuildConfig.PLEOS_CLIENT_ID, BuildConfig.PLEOS_CLIENT_SECRET, object : ai.pleos.playground.stt.listener.OnServerConnectionListener {
+                                        override fun onConnected() { log("STT 서버 연결") }
+                                        override fun onFailed(e: ai.pleos.playground.stt.constant.ErrorType) { log("STT 서버 등록 실패 $e") }
+                                    })
+                                }.onFailure { log("STT registerApp 예외 ${it.message}") }
+                                log("Pleos 음성 준비"); ok()
+                            }
                             override fun onFailure(e: ai.pleos.playground.stt.constant.ErrorType) { log("Pleos STT 초기화 실패 $e"); ok() /* TTS만이라도 */ }
                         })
                     }.onFailure { log("Pleos STT 예외 ${it.message}"); ok() }
@@ -104,7 +119,7 @@ class AndroidVoice(private val context: Context, private val log: (String) -> Un
     init {
         tts = android.speech.tts.TextToSpeech(context.applicationContext) { st ->
             ready = st == android.speech.tts.TextToSpeech.SUCCESS
-            if (ready) runCatching { tts.setLanguage(Locale.KOREAN) }
+            if (ready) runCatching { tts.setLanguage(Locale.KOREA) }
             log(if (ready) "Android TTS 준비" else "Android TTS 없음")
             pending?.let { (t, d) -> pending = null; say(t, d) }
         }

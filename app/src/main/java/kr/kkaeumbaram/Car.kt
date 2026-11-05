@@ -64,11 +64,15 @@ class PleosCar(
     override var connected = false; private set
 
     private val driver = SeatArea(SeatValue.ROW_1_LEFT)
-    private var fanArea: SeatArea = driver        // 에뮬레이터는 팬 속도 area가 운전석 단독이 아님 → capability로 받는다
-    private var recircArea: SeatArea = driver
-    private var powerArea: SeatArea = driver
+    // 에뮬레이터는 운전석 단독 area(0x1)를 거부한다. 11/2 실측한 area를 기본값으로 두고, capability 응답이 오면 덮어쓴다.
+    // (부팅 직후엔 capability 콜백이 수십 초 안 오기도 해서 기본값이 필요)
+    private val front = SeatArea(SeatValue.ROW_1_LEFT, SeatValue.ROW_1_RIGHT)
+    private val cabin = SeatArea(SeatValue.ROW_1_LEFT, SeatValue.ROW_1_RIGHT, SeatValue.ROW_2_LEFT, SeatValue.ROW_2_CENTER, SeatValue.ROW_2_RIGHT)
+    private var fanArea: SeatArea = front
+    private var recircArea: SeatArea = cabin
+    private var powerArea: SeatArea = cabin
     private var vented = false
-    private var ambientArea: SeatArea = driver
+    private var ambientArea: SeatArea = cabin
     private val driverWindow = WindowArea(WindowValue.ROW_1_LEFT)
     private var fanBefore = 3
     private var windowBefore = 0
@@ -118,9 +122,10 @@ class PleosCar(
         if (!connected) return l("vent: 차량 미연결")
         vented = true
         val hvac = vehicle.getHVAC()
-        hvac.setHvacPower(powerArea, true, { _, _ -> l("공조 ON") }, fail("공조 ON"))
+        // 팬은 공조 전원이 켜진 뒤에만 받는다(error code 2) → 전원 콜백 뒤에 순서대로
+        val fan = { hvac.setHvacFanSpeed(fanArea, if (strong) 8 else 6, { _, v -> l("팬 $v") }, fail("팬")) }
+        hvac.setHvacPower(powerArea, true, { _, _ -> l("공조 ON"); fan() }, { e -> fail("공조 ON")(e); fan() })
         hvac.setHvacRecirculation(recircArea, false, { _, _ -> l("외기 전환") }, fail("외기"))
-        hvac.setHvacFanSpeed(fanArea, if (strong) 8 else 6, { _, v -> l("팬 $v") }, fail("팬"))
         vehicle.getSeat().setHvacSeatVentilation(driver, 3, { _, v -> l("시트 통풍 $v") }, fail("시트 통풍"))
         // 와이퍼 작동 중(비)이면 창문은 생략. 에뮬레이터 창문 0~10단계, 15% ≈ 2.
         vehicle.getWiper().getCurrentWiperState(WindowArea(WindowValue.FRONT_WINDSHIELD), { w ->

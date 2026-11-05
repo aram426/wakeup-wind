@@ -1,3 +1,4 @@
+import java.util.Properties
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -14,6 +15,10 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "0.1.0"
+        // Pleos My Project 키. local.properties(git 제외)에 pleos.clientId / pleos.clientSecret
+        val lp = Properties().apply { rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { this.load(it) } }
+        buildConfigField("String", "PLEOS_CLIENT_ID", "\"${lp.getProperty("pleos.clientId", "")}\"")
+        buildConfigField("String", "PLEOS_CLIENT_SECRET", "\"${lp.getProperty("pleos.clientSecret", "")}\"")
     }
     buildTypes {
         release {
@@ -26,7 +31,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; buildConfig = true }
     packaging { resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" } }
 }
 
