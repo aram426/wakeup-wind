@@ -70,8 +70,14 @@ Pleos SDK는 `settings.gradle.kts`의 Pleos Maven에서 받는다.
 | 팬 속도 | HVAC 전원이 꺼져 있으면 error code 2. 전원 ON 후 됨. area는 capability로 받아야 함(ROW_1_LEFT 단독은 거부) |
 | 실내등 | ON/OFF 되나 가끔 50001 오류 |
 | Pleos TTS ON_DEVICE | `ON_DEVICE_ENGINE_ERROR`. 에뮬레이터엔 온디바이스 엔진이 없음 → HYBRID/SERVER + My Project 앱 등록(registerApp) 필요. Android 기본 TTS도 없음 |
-| Pleos STT | 권한 `STT_SERVICE` 선언 후 초기화됨, 마이크 실측은 아직 |
+| Pleos STT | 됨(11/5). "두 번째"가 온디바이스로 인식돼 응답 처리까지 확인. 맥 마이크를 쓰려면 아래 "마이크" 절 참고. SDK가 `onEndedRecognition`을 최종 `onUpdated(isFinal=true)`보다 먼저 보내므로 종료 콜백에서 무응답 처리하면 결과를 놓친다(수정함) |
 | 주행 중(기어 D) 앱 화면 | 매니페스트 `distractionOptimized=true` 메타데이터로 유지됨(홈 화면이 `distractionOptimized: true`로 인식). 단, 기어가 D로 바뀌는 순간 앱 위에 권한 팝업 같은 시스템 창이 떠 있으면 그 작업 전체가 "주행 중에는 사용할 수 없습니다"로 가려지고 다시 풀리지 않는다 → 첫 실행·권한 허용은 반드시 P에서 끝낸 뒤 D로. 가려지면 P로 돌리고 앱을 닫았다 다시 연다 |
+
+### 마이크 (맥 → 에뮬레이터 STT)
+
+1. 에뮬레이터는 반드시 **Terminal 앱에서 직접** 띄운다. Claude Code나 백그라운드에서 띄우면 macOS 마이크 권한 팝업이 안 떠서 무음만 들어간다. 시스템 설정 > 개인정보 보호 및 보안 > 마이크에 "터미널"이 켜져 있어야 한다.
+2. 호스트 마이크 전달은 기본 꺼짐. 부팅 후 `adb emu avd hostmicon` 한 번 실행(또는 에뮬레이터 ⋯ > Microphone > "Virtual microphone uses host audio input").
+3. 앱에 `RECORD_AUDIO` 권한이 있어야 한다. 첫 실행 팝업에서 허용하거나 `adb shell pm grant kr.kkaeumbaram android.permission.RECORD_AUDIO`.
 
 ### Virtual Console을 터미널에서
 

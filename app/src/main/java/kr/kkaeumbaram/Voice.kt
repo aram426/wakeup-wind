@@ -54,15 +54,15 @@ class PleosVoice(private val context: Context, private val log: (String) -> Unit
         override fun onUpdatedRms(v: Double) {}
     }
     private val sttResults = object : ResultListener {
-        override fun onUpdated(text: String, isFinal: Boolean) { if (isFinal) deliver(text) }
+        override fun onUpdated(text: String, isFinal: Boolean) { logi("STT onUpdated '$text' final=$isFinal heard=${heard != null}"); if (isFinal) deliver(text) }
         override fun onUpdatedEpdData(a: Long, b: Long) {}
         override fun onStartedRecognition() {}
-        override fun onEndedRecognition() { deliver(null) }
-        override fun onError(e: ai.pleos.playground.stt.constant.ErrorType) { log("STT 오류 $e"); deliver(null) }
+        override fun onEndedRecognition() {} // 최종 onUpdated(isFinal)보다 먼저 와서 여기서 null을 주면 결과를 놓친다. 무응답은 Engine 타임아웃이 처리
+        override fun onError(e: ai.pleos.playground.stt.constant.ErrorType) { logi("STT onError $e"); log("STT 오류 $e"); deliver(null) }
         override fun onReady() {}
         override fun onUpdatedRms(v: Double) {}
     }
-    private fun deliver(t: String?) { val h = heard ?: return; heard = null; h(t) }
+    private fun deliver(t: String?) { logi("STT deliver '$t' heard=${heard != null}"); val h = heard ?: return; heard = null; h(t) }
 
     fun init(ok: () -> Unit, failed: () -> Unit) {
         runCatching {
@@ -97,7 +97,7 @@ class PleosVoice(private val context: Context, private val log: (String) -> Unit
     }
 
     override fun say(text: String, onDone: () -> Unit) { sayDone = onDone; runCatching { tts.speak(text, true) }.onFailure { log("speak 실패"); onDone() } }
-    override fun listen(onHeard: (String?) -> Unit) { heard = onHeard; runCatching { stt.request() }.onFailure { log("STT request 실패"); deliver(null) } }
+    override fun listen(onHeard: (String?) -> Unit) { logi("STT listen"); heard = onHeard; runCatching { stt.request() }.onFailure { log("STT request 실패"); deliver(null) } }
     override fun volumeUp() = setVol(0.9f)
     override fun volumeNormal() = setVol(0.6f)
     private fun setVol(f: Float) = runCatching {
