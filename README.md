@@ -21,7 +21,7 @@ adb install -r app\build\outputs\apk\debug\app-debug.apk
 
 JDK가 안 잡히면 Android Studio에 들어 있는 JDK를 쓰면 된다. 윈도우 기준 `C:\Program Files\Android\Android Studio\jbr`를 `JAVA_HOME` 환경 변수로 지정한다.
 
-`local.properties`는 각자 컴퓨터에만 있는 파일이다(깃에 안 올라감). 처음 받으면 프로젝트 루트에 직접 만든다.
+`local.properties`는 각자 컴퓨터에만 있는 파일이다(깃에 안 올라감). 처음 받으면 `local.properties.example`을 복사해 `local.properties`로 이름을 바꾸고 값을 채운다.
 
 ```
 sdk.dir=C\:\\Users\\<이름>\\AppData\\Local\\Android\\Sdk    # 윈도우. 맥은 /Users/<이름>/Library/Android/sdk
