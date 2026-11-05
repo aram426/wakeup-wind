@@ -4,13 +4,32 @@
 
 ## 빌드
 
+JDK 17과 Android Studio(Android SDK 34)가 필요하다. Android Studio로 폴더를 열면 Gradle 동기화가 자동으로 돌고, 터미널에서는 아래처럼 한다.
+
+맥:
 ```
-export JAVA_HOME=/opt/homebrew/opt/openjdk@17   # JDK 17 필요
+export JAVA_HOME=/opt/homebrew/opt/openjdk@17
 ./gradlew testDebugUnitTest assembleDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-`local.properties`의 `sdk.dir`를 본인 Android SDK 경로로 맞춘다. Pleos SDK는 `settings.gradle.kts`의 Pleos Maven에서 받는다.
+윈도우(PowerShell 또는 명령 프롬프트):
+```
+gradlew.bat testDebugUnitTest assembleDebug
+adb install -r app\build\outputs\apk\debug\app-debug.apk
+```
+
+JDK가 안 잡히면 Android Studio에 들어 있는 JDK를 쓰면 된다. 윈도우 기준 `C:\Program Files\Android\Android Studio\jbr`를 `JAVA_HOME` 환경 변수로 지정한다.
+
+`local.properties`는 각자 컴퓨터에만 있는 파일이다(깃에 안 올라감). 처음 받으면 프로젝트 루트에 직접 만든다.
+
+```
+sdk.dir=C\:\\Users\\<이름>\\AppData\\Local\\Android\\Sdk    # 윈도우. 맥은 /Users/<이름>/Library/Android/sdk
+pleos.clientId=<My Project 콘솔의 Client ID>
+pleos.clientSecret=<My Project 콘솔의 Client Secret>
+```
+
+Pleos SDK는 `settings.gradle.kts`의 Pleos Maven에서 받는다.
 
 ## 구조
 
@@ -34,6 +53,12 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 - 시스템 이미지는 `~/Library/Android/sdk/system-images/android-34/pleos_car_emulator/arm64-v8a/`, AVD 이름은 `pleos` (`~/.android/avd/pleos.avd`, 2560x1440, RAM 4GB, cold boot). 2.1.0부터 CRN 주입은 필요 없다.
 - 실행: `~/Library/Android/sdk/emulator/emulator -avd pleos -no-snapshot`
 - Android Studio도 설치되어 있다(`/Applications/Android Studio.app`). Device Manager에 `pleos`가 보인다.
+- **윈도우 설치**: Android Studio > Tools > SDK Manager > SDK Update Sites > Add에 아래 주소를 넣고, SDK Platforms에서 "Pleos Connect" API 34 시스템 이미지를 설치한다. 그다음 Device Manager에서 Automotive 기기로 AVD를 만들고 Cold boot, RAM 4GB로 둔다(Quick boot면 차량 신호가 안 들어온다). 맥용(arm64)과는 다른 피드다.
+  ```
+  https://nexus-playground.pleos.ai/repository/raw-releases/connect-avd/2.x/crp-sys-img.xml
+  ```
+  공식 안내: https://document.pleos.ai/en/docs/connect/guide/getting-started/application-development/setup-connect-sdk-emulator
+- `tools/console.sh`는 윈도우에서 Git Bash로 실행한다(`sh tools/console.sh state`). `python`이 PATH에 있어야 `state`가 동작한다.
 
 ### 실측 결과 (Pleos 에뮬레이터, 11/2)
 
