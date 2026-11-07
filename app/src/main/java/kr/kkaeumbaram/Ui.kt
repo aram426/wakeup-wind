@@ -23,6 +23,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -40,7 +41,7 @@ private val Danger = Color(0xFFEF4444)
 private val Calm = Color(0xFF22C55E)
 
 @Composable
-fun AppScreen(ui: Ui, vm: MainViewModel) {
+fun AppScreen(ui: Ui, vm: MainViewModel?) {
     MaterialTheme(colorScheme = darkColorScheme(primary = Wind, background = Bg, surface = Panel, onSurface = Ink)) {
         Row(Modifier.fillMaxSize().background(Bg).padding(20.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             StatusPane(ui, Modifier.width(300.dp))
@@ -80,7 +81,7 @@ private fun Stat(label: String, value: String, color: Color = Ink) {
 }
 
 @Composable
-private fun MainCard(ui: Ui, vm: MainViewModel, m: Modifier) {
+private fun MainCard(ui: Ui, vm: MainViewModel?, m: Modifier) {
     val s = ui.s
     val (title, body, accent) = when (s.phase) {
         Phase.IDLE -> Triple("대기 중", "출발하면 30분마다 차가 환기하고 안부를 물어요.", Muted)
@@ -102,13 +103,13 @@ private fun MainCard(ui: Ui, vm: MainViewModel, m: Modifier) {
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             when (s.phase) {
-                Phase.IDLE -> Big("출발", Wind) { vm.start() }
-                Phase.DRIVING -> Big("지금 환기", Wind) { vm.ventNow() }
+                Phase.IDLE -> Big("출발", Wind) { vm?.start() }
+                Phase.DRIVING -> Big("지금 환기", Wind) { vm?.ventNow() }
                 Phase.VENT -> {}
-                Phase.QUESTION -> { Big("괜찮아요", Calm) { vm.answered() }; Big("응답 없음(시연)", Danger) { vm.noAnswer() } }
-                Phase.STRETCH -> Big("다 했어요", Calm) { vm.stretchDone() }
-                Phase.REST -> { Big("쉼터 경유", Danger) { vm.restAccept() }; Big("15분 뒤에", Muted) { vm.restDecline() } }
-                Phase.NAP -> Big("지금 일어날래요", Calm) { vm.wake() }
+                Phase.QUESTION -> { Big("괜찮아요", Calm) { vm?.answered() }; Big("응답 없음(시연)", Danger) { vm?.noAnswer() } }
+                Phase.STRETCH -> Big("다 했어요", Calm) { vm?.stretchDone() }
+                Phase.REST -> { Big("쉼터 경유", Danger) { vm?.restAccept() }; Big("15분 뒤에", Muted) { vm?.restDecline() } }
+                Phase.NAP -> Big("지금 일어날래요", Calm) { vm?.wake() }
             }
         }
     }
@@ -122,18 +123,18 @@ private fun Big(label: String, color: Color, onClick: () -> Unit) {
 }
 
 @Composable
-private fun DemoPane(ui: Ui, vm: MainViewModel, m: Modifier) {
+private fun DemoPane(ui: Ui, vm: MainViewModel?, m: Modifier) {
     Column(m.fillMaxHeight().background(Panel, RoundedCornerShape(16.dp)).padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("시연 모드 (1초=1분)", color = Ink, fontSize = 16.sp); Switch(ui.demo, { vm.toggleDemo() })
+            Text("시연 모드 (1초=1분)", color = Ink, fontSize = 16.sp); Switch(ui.demo, { vm?.toggleDemo() })
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("세게 깨워줘", color = Ink, fontSize = 16.sp); Switch(ui.s.strongMode, { vm.strongMode(it) })
+            Text("세게 깨워줘", color = Ink, fontSize = 16.sp); Switch(ui.s.strongMode, { vm?.strongMode(it) })
         }
         Text("차량 신호 흉내 (에뮬레이터 주입 대신)", color = Muted, fontSize = 13.sp)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Small("+10분") { vm.fastForward(10) }; Small("+30분") { vm.fastForward(30) } }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Small("기어 P") { vm.gearPark() }; Small("기어 D") { vm.gearDrive() } }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Small("충전 시작") { vm.charge() }; Small("Gleo: 쉼터 가자") { vm.gleo("GO_REST") } }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Small("+10분") { vm?.fastForward(10) }; Small("+30분") { vm?.fastForward(30) } }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Small("기어 P") { vm?.gearPark() }; Small("기어 D") { vm?.gearDrive() } }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Small("충전 시작") { vm?.charge() }; Small("Gleo: 쉼터 가자") { vm?.gleo("GO_REST") } }
         Spacer(Modifier.height(6.dp))
         Text("로그", color = Muted, fontSize = 13.sp)
         LazyColumn(Modifier.weight(1f)) { items(ui.log) { Text(it, color = Muted, fontSize = 12.sp, lineHeight = 16.sp) } }
@@ -144,3 +145,20 @@ private fun DemoPane(ui: Ui, vm: MainViewModel, m: Modifier) {
 private fun Small(label: String, onClick: () -> Unit) {
     OutlinedButton(onClick, shape = RoundedCornerShape(10.dp)) { Text(label, color = Ink, fontSize = 14.sp) }
 }
+
+// ---- Android Studio Preview (에뮬레이터 없이 화면만 확인; Split/Design 탭) ----
+// vm = null 이라 버튼은 안 눌림. 상태만 바꿔가며 디자인 확인용.
+private val previewStops = listOf(RestStop("안성 졸음쉼터", 37.0, 127.2, "경부고속도로") to 3.2, RestStop("오산 휴게소", 37.1, 127.1, "경부고속도로") to 8.7)
+private fun previewUi(phase: Phase, sec: Int = 0, q: String = "") = Ui(
+    s = State(phase = phase, phaseSec = sec, sinceStopSec = 95 * 60, sinceAlertSec = 27 * 60, question = q, ventCount = 3, reactionMs = listOf(2100, 3400)),
+    carConnected = true, voiceEngine = "Pleos TTS/STT", listening = phase == Phase.QUESTION,
+    restOptions = if (phase == Phase.REST) previewStops else emptyList(),
+    log = listOf("환기 3회째", "기어 D", "Vehicle SDK 초기화됨"),
+)
+
+@Preview(name = "주행", widthDp = 1280, heightDp = 720) @Composable private fun PvDriving() = AppScreen(previewUi(Phase.DRIVING), null)
+@Preview(name = "환기", widthDp = 1280, heightDp = 720) @Composable private fun PvVent() = AppScreen(previewUi(Phase.VENT, 12), null)
+@Preview(name = "질문", widthDp = 1280, heightDp = 720) @Composable private fun PvQuestion() = AppScreen(previewUi(Phase.QUESTION, 4, "오늘 몇 개 남았어요?"), null)
+@Preview(name = "스트레칭", widthDp = 1280, heightDp = 720) @Composable private fun PvStretch() = AppScreen(previewUi(Phase.STRETCH, 20), null)
+@Preview(name = "휴식 제안", widthDp = 1280, heightDp = 720) @Composable private fun PvRest() = AppScreen(previewUi(Phase.REST), null)
+@Preview(name = "쪽잠", widthDp = 1280, heightDp = 720) @Composable private fun PvNap() = AppScreen(previewUi(Phase.NAP, 8 * 60), null)
