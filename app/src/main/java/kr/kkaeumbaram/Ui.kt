@@ -65,11 +65,42 @@ private fun StatusPane(ui: Ui, m: Modifier) {
         Stat("다음 환기까지", mmss(maxOf(0, s.intervalSec - s.sinceAlertSec)))
         Stat("단계", s.level.name + if (s.strongMode) " · 세게" else "", when (s.level) { Level.L1 -> Calm; Level.L2 -> Warn; Level.L3 -> Danger })
         Spacer(Modifier.height(8.dp))
+        Report(s)
+    }
+}
+
+/** 오늘 리포트. 평균 반응시간이 핵심 지표라 크게, 나머지 셋은 작은 타일. */
+@Composable
+private fun Report(s: State) {
+    Column(Modifier.fillMaxWidth().background(Bg, RoundedCornerShape(12.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("오늘 리포트", color = Muted, fontSize = 14.sp)
-        Stat("환기", "${s.ventCount}회")
-        Stat("최장 연속 주행", mmss(s.longestDriveSec))
-        Stat("평균 반응시간", if (s.reactionMs.isEmpty()) "-" else "${s.avgReactionMs / 1000.0}초")
-        Stat("스트레칭 / 낮잠 / 쉼터", "${s.stretches} / ${s.naps} / ${s.restSuggested}")
+        Column {
+            Text("평균 반응시간", color = Muted, fontSize = 16.sp)
+            Row(verticalAlignment = Alignment.Bottom) {
+                if (s.reactionMs.isEmpty()) Text("—", color = Muted, fontSize = 56.sp, fontWeight = FontWeight.Bold, lineHeight = 60.sp)
+                else {
+                    Text("%.1f".format(s.avgReactionMs / 1000.0), color = Wind, fontSize = 56.sp, fontWeight = FontWeight.Bold, lineHeight = 60.sp)
+                    Text("초", color = Wind, fontSize = 24.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
+                }
+            }
+            Text(if (s.reactionMs.isEmpty()) "아직 질문 전" else "질문 ${s.reactionMs.size}회 기준", color = Muted, fontSize = 13.sp)
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Tile("환기", "${s.ventCount}", "회")
+            Tile("최장 연속", mmss(s.longestDriveSec))
+            Tile("휴식 이행", "${s.restAccepted}", "/${s.restSuggested}")
+        }
+    }
+}
+
+@Composable
+private fun Tile(label: String, value: String, unit: String = "") {
+    Column {
+        Text(label, color = Muted, fontSize = 13.sp)
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(value, color = Ink, fontSize = 26.sp, fontWeight = FontWeight.Bold, lineHeight = 30.sp)
+            if (unit.isNotEmpty()) Text(unit, color = Muted, fontSize = 15.sp, modifier = Modifier.padding(start = 2.dp, bottom = 3.dp))
+        }
     }
 }
 
@@ -150,7 +181,7 @@ private fun Small(label: String, onClick: () -> Unit) {
 // vm = null 이라 버튼은 안 눌림. 상태만 바꿔가며 디자인 확인용.
 private val previewStops = listOf(RestStop("안성 졸음쉼터", 37.0, 127.2, "경부고속도로") to 3.2, RestStop("오산 휴게소", 37.1, 127.1, "경부고속도로") to 8.7)
 private fun previewUi(phase: Phase, sec: Int = 0, q: String = "") = Ui(
-    s = State(phase = phase, phaseSec = sec, sinceStopSec = 95 * 60, sinceAlertSec = 27 * 60, question = q, ventCount = 3, reactionMs = listOf(2100, 3400)),
+    s = State(phase = phase, phaseSec = sec, sinceStopSec = 95 * 60, sinceAlertSec = 27 * 60, question = q, ventCount = 3, longestDriveSec = 95 * 60, reactionMs = listOf(2100, 3400, 1200), restSuggested = 2, restAccepted = 1),
     carConnected = true, voiceEngine = "Pleos TTS/STT", listening = phase == Phase.QUESTION,
     restOptions = if (phase == Phase.REST) previewStops else emptyList(),
     log = listOf("환기 3회째", "기어 D", "Vehicle SDK 초기화됨"),
