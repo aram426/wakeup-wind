@@ -11,7 +11,6 @@ import ai.pleos.playground.vehicle.api.model.area.SeatArea
 import ai.pleos.playground.vehicle.api.model.area.WindowArea
 import ai.pleos.playground.vehicle.constant.area.SeatValue
 import ai.pleos.playground.vehicle.constant.area.WindowValue
-import ai.pleos.playground.vehicle.constant.control.LightSwitch
 import ai.pleos.playground.vehicle.constant.control.VehicleGear
 import ai.pleos.playground.vehicle.constant.control.WiperState
 import ai.pleos.playground.vehicle.listener.EvChargePortOpenListener
@@ -147,7 +146,6 @@ class PleosCar(
     override fun light(on: Boolean) {
         if (!connected) return
         vehicle.getLight().setAmbientLightBrightness(ambientArea, if (on) 100 else 10, { _, v -> l("앰비언트 $v") }, fail("앰비언트"))
-        vehicle.getLight().setCabinLightSwitch(if (on) LightSwitch.ON else LightSwitch.OFF, { l("실내등 $it") }, fail("실내등"))
     }
 
     override fun addWaypoint(lat: Double, lon: Double, name: String) {
