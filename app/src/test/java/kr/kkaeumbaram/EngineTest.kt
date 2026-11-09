@@ -60,4 +60,21 @@ class EngineTest {
         assertEquals(1, e.state.naps)
         assertEquals(Phase.IDLE, e.state.phase)
     }
+
+    @Test fun `리포트 집계 환기 평균반응시간 최장연속 휴식이행`() {
+        val (e, _) = engine()
+        e.tick(30 * 60); e.tick(60); clock += 1000; e.answered()   // 환기 1, 반응 1.0초
+        e.tick(30 * 60); e.tick(60); clock += 3000; e.answered()   // 환기 2, 반응 3.0초
+        assertEquals(2, e.state.ventCount)
+        assertEquals(2000L, e.state.avgReactionMs)
+        assertEquals(60 * 60, e.state.longestDriveSec)                 // 환기·질문 중엔 안 늘어남
+        e.tick(30 * 60)                                             // 90분+ → 쉼터 제안
+        assertEquals(Phase.REST, e.state.phase)
+        e.restDeclined()
+        assertEquals(1, e.state.restSuggested); assertEquals(0, e.state.restAccepted)
+        e.tick(15 * 60)                                             // 15분 뒤 다시 제안
+        assertEquals(Phase.REST, e.state.phase)
+        e.restAccepted()
+        assertEquals(2, e.state.restSuggested); assertEquals(1, e.state.restAccepted)
+    }
 }

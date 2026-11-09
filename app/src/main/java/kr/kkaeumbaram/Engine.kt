@@ -36,6 +36,7 @@ data class State(
     val reactionMs: List<Long> = emptyList(),
     val naps: Int = 0,
     val restSuggested: Int = 0,
+    val restAccepted: Int = 0,           // 휴식 이행(쉼터 경유 수락)
     val stretches: Int = 0,
 ) {
     val avgReactionMs: Long get() = if (reactionMs.isEmpty()) 0 else reactionMs.sum() / reactionMs.size
@@ -175,7 +176,7 @@ class Engine(private val now: () -> Long = System::currentTimeMillis) {
         if (state.phase != Phase.REST) return
         onEffect(Effect.AddRestWaypoint)
         onEffect(Effect.Say("쉼터를 경유지에 넣었어요. 도착하면 알려 드릴게요."))
-        set(state.copy(phase = Phase.DRIVING, phaseSec = 0, level = Level.L1, noAnswerStreak = 0, sinceAlertSec = 0, restDeclinedSec = -1))
+        set(state.copy(phase = Phase.DRIVING, phaseSec = 0, level = Level.L1, noAnswerStreak = 0, sinceAlertSec = 0, restDeclinedSec = -1, restAccepted = state.restAccepted + 1))
     }
 
     fun restDeclined() {
