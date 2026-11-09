@@ -42,7 +42,7 @@ Pleos SDK는 `settings.gradle.kts`의 Pleos Maven에서 받는다.
 | `MainViewModel.kt` | Engine 효과를 Car/Voice로 연결, 1초 틱, 시연 모드 |
 | `Ui.kt` | 3단 화면: 상태·리포트 / 메인 카드 / 시연 패널·로그 |
 | `GleoReceiver.kt` + `assets/gleo_schema.json` | Gleo 발화 → Action 브로드캐스트 (VENT_NOW, I_AM_FINE, GO_REST, STRONG_MODE) |
-| `assets/rest_stops.csv` | 졸음쉼터 좌표. 지금은 수도권 샘플 12곳(근사값). 제출 전 data.go.kr 15028203 CSV로 교체 |
+| `assets/rest_stops.csv` | 졸음쉼터 좌표(`name,lat,lon,road`). data.go.kr 15028203 한국도로공사 졸음쉼터 전국 253곳 |
 
 ## 시연 모드
 
