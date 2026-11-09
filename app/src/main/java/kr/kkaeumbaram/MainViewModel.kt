@@ -31,6 +31,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         PleosCar(app, onGearPark = engine::stopped, onGearDrive = engine::startDriving, onChargeStart = engine::chargingStarted)
     }.getOrElse { log("Vehicle SDK 로드 실패: ${it.message}"); NoCar() }
     private var voice: Voice? = null
+    private val speech = SpeechQueue { text, done -> voice?.say(text, done) ?: done() }
     private val stops = RestStops.load(app)
 
     init {
@@ -51,16 +52,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun apply(e: Effect) {
         when (e) {
-            is Effect.Say -> voice?.say(e.text)
+            is Effect.Say -> speech.say(e.text)
             is Effect.Vent -> car.vent(e.strong)
             Effect.VentOff -> car.ventOff()
-            is Effect.Ask -> voice?.say(e.text) {
+            is Effect.Ask -> voice?.let { speech.say(e.text) {
                 _ui.update { it.copy(listening = true) }
                 voice?.listen { heard ->
                     _ui.update { it.copy(listening = false) }
                     if (heard != null) { log("들음: $heard"); engine.answered() } else log("응답 없음")
                 }
-            } ?: log("음성 엔진 없음, 화면 버튼으로 응답")
+            } } ?: log("음성 엔진 없음, 화면 버튼으로 응답")
             Effect.VolumeUp -> voice?.volumeUp()
             Effect.VolumeNormal -> voice?.volumeNormal()
             is Effect.Light -> car.light(e.on)

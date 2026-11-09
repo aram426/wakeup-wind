@@ -27,6 +27,32 @@ interface Voice {
     fun release()
 }
 
+/**
+ * 문장 큐. 앞 문장의 완료 콜백이 와야 다음 문장을 말한다.
+ * onDone은 큐가 완전히 빈 뒤에 호출된다(질문 → 그때 STT를 연다).
+ * 백엔드는 TTS 오류도 onDone으로 알리므로 오류로 큐가 멈추지 않는다.
+ */
+class SpeechQueue(private val speak: (String, onDone: () -> Unit) -> Unit) {
+    private val q = ArrayDeque<Pair<String, () -> Unit>>()
+    private val whenIdle = mutableListOf<() -> Unit>()
+    private var speaking = false
+
+    fun say(text: String, onDone: () -> Unit = {}) { synchronized(this) { q.addLast(text to onDone) }; pump() }
+
+    private fun pump() {
+        val item: Pair<String, () -> Unit>?
+        val flush: List<() -> Unit>
+        synchronized(this) {
+            if (speaking) return
+            item = q.removeFirstOrNull()
+            if (item != null) { speaking = true; whenIdle += item.second; flush = emptyList() }
+            else { flush = whenIdle.toList(); whenIdle.clear() }
+        }
+        if (item == null) { flush.forEach { it() }; return }
+        speak(item.first) { synchronized(this) { speaking = false }; pump() }
+    }
+}
+
 class VoiceFactory(private val context: Context, private val log: (String) -> Unit) {
     fun create(onReady: (Voice) -> Unit) {
         val pleos = PleosVoice(context, log)
