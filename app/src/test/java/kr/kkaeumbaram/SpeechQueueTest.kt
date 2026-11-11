@@ -26,4 +26,17 @@ class SpeechQueueTest {
         q.say("다시")                               // 큐가 빈 뒤 새 문장은 바로 말한다
         assertEquals("다시", spoken.last())
     }
+
+    @Test fun `오디오 포커스는 첫 문장 전에 잡고 큐가 비면 놓는다`() {
+        val busy = mutableListOf<Boolean>()
+        val fq = SpeechQueue(onBusy = { busy += it }) { _, d -> dones.addLast(d) }
+        fq.say("하나"); fq.say("둘")
+        assertEquals(listOf(true), busy)
+        dones.removeFirst()()
+        assertEquals(listOf(true), busy)            // 문장 사이에는 놓지 않는다
+        dones.removeFirst()()
+        assertEquals(listOf(true, false), busy)
+        fq.say("셋")
+        assertEquals(listOf(true, false, true), busy)
+    }
 }
