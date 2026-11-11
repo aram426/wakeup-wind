@@ -13,6 +13,8 @@ export JAVA_HOME=/opt/homebrew/opt/openjdk@17
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
+제출용 APK는 `./gradlew assembleRelease` → `app/build/outputs/apk/release/app-release.apk` (debug 키 서명. APK는 깃에 올리지 않고 GitHub Release에 첨부).
+
 윈도우(PowerShell 또는 명령 프롬프트):
 ```
 gradlew.bat testDebugUnitTest assembleDebug
@@ -73,11 +75,17 @@ Pleos SDK는 `settings.gradle.kts`의 Pleos Maven에서 받는다.
 | Pleos STT | 됨(11/5). "두 번째"가 온디바이스로 인식돼 응답 처리까지 확인. 맥 마이크를 쓰려면 아래 "마이크" 절 참고. SDK가 `onEndedRecognition`을 최종 `onUpdated(isFinal=true)`보다 먼저 보내므로 종료 콜백에서 무응답 처리하면 결과를 놓친다(수정함) |
 | 주행 중(기어 D) 앱 화면 | 매니페스트 `distractionOptimized=true` 메타데이터로 유지됨(홈 화면이 `distractionOptimized: true`로 인식). 단, 기어가 D로 바뀌는 순간 앱 위에 권한 팝업 같은 시스템 창이 떠 있으면 그 작업 전체가 "주행 중에는 사용할 수 없습니다"로 가려지고 다시 풀리지 않는다 → 첫 실행·권한 허용은 반드시 P에서 끝낸 뒤 D로. 가려지면 P로 돌리고 앱을 닫았다 다시 연다 |
 
+### 오디오 (11/11 실측, Pleos 오디오 포커스·선행 묵음 가이드 반영)
+
+- 말하기 전에 오디오 포커스를 `AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK`(음악은 끊지 않고 줄이기만)으로 요청하고, 말 묶음이 끝나면 반납한다. 포커스를 잡은 뒤 150ms 쉬고 첫 문장을 말한다(첫 음절 잘림 방지).
+- 앱은 차량 볼륨을 바꾸지 못한다. `AudioManager.setStreamVolume`을 호출해도 차량 볼륨 그룹 값이 그대로다(`dumpsys car_service`로 확인). 그래서 L2는 볼륨이 아니라 더 센 환기로 깨우고, 안내 문장도 볼륨을 약속하지 않는다.
+- 질문이 끝나면(타임아웃·정차·버튼 응답) STT를 바로 닫는다.
+
 ### 마이크 (맥 → 에뮬레이터 STT)
 
 1. 에뮬레이터는 반드시 **Terminal 앱에서 직접** 띄운다. Claude Code나 백그라운드에서 띄우면 macOS 마이크 권한 팝업이 안 떠서 무음만 들어간다. 시스템 설정 > 개인정보 보호 및 보안 > 마이크에 "터미널"이 켜져 있어야 한다.
 2. 호스트 마이크 전달은 기본 꺼짐. 부팅 후 `adb emu avd hostmicon` 한 번 실행(또는 에뮬레이터 ⋯ > Microphone > "Virtual microphone uses host audio input").
-3. 앱에 `RECORD_AUDIO` 권한이 있어야 한다. 첫 실행 팝업에서 허용하거나 `adb shell pm grant kr.kkaeumbaram android.permission.RECORD_AUDIO`.
+3. 앱에 `RECORD_AUDIO` 권한이 있어야 한다(쉼터 거리 계산용 위치는 `pleos.car.permission.FUSED_LOCATION`, 런타임 권한이라 첫 실행 팝업 또는 `pm grant`). 에뮬레이터 앱은 사용자 10으로 돌기 때문에 adb로 줄 때는 `pm grant --user 10 …`. 첫 실행 팝업에서 허용하거나 `adb shell pm grant --user 10 kr.kkaeumbaram android.permission.RECORD_AUDIO`.
 
 ### Virtual Console을 터미널에서
 
@@ -112,12 +120,15 @@ tools/demo.sh
 | 1 | `gear Drive` | 주행 중, 다음 환기까지 카운트다운(1초=1분) | 00:00 |
 | 2 | 타이머(30분→30초) 또는 `SKIP=1`이면 즉시 | L1 환기: 외기·팬 6·창문 20%·앰비언트 ON, "환기할 시간이에요" | 00:30 |
 | 3 | 환기 60초 경과 | 환기 원복, 질문 "다음 배송지는 몇 번째예요?", 듣기 표시. 대답 안 함 | 01:30 |
-| 4 | 무응답 15초 | L2: 볼륨 UP, "대답이 없네요", 세게 환기(팬 8·창문 3단) | 01:45 |
+| 4 | 무응답 15초 | L2: "대답이 없네요. 더 세게 깨울게요", 세게 환기(팬 8·창문 3단) | 01:45 |
 | 5 | 환기 60초 경과 | 질문 "삐 소리가 나면 네라고 말해 주세요". 대답 안 함 | 02:45 |
 | 6 | 무응답 15초 | L3: "더는 깨우지 않을게요", 쉼터 3곳 카드(거리 km), Enter 대기 | 03:00 |
 | 7 | `gear Park` | "잠깐 섰네요. 90초만", 스트레칭 카드, 환기 OFF | 03:00+ |
 | 8 | 스트레칭 90초 경과 | "수고했어요", 대기 중 | 04:30 |
 | 9 | `charge on` | "충전 시작했어요. 20분만 눈 붙일까요?", 조명 OFF, 낮잠 카드 | 04:30+ |
-| 10 | 낮잠 20분→20초 | 조명 ON, 세게 환기, "20분 지났어요. 일어나요". 리포트: 환기 2회, 평균 반응시간 —(무응답이라 표본 없음), 최장 연속 주행·휴식 이행 값은 리허설에서 확인 | 04:50 |
+| 10 | 낮잠 20분→20초 | 조명 ON, 세게 환기, "20분 지났어요. 일어나요". 리포트: 환기 2회, 평균 반응시간 —(무응답이라 표본 없음), 최장 연속 30:00, 휴식 이행 0/1 | 04:50 |
+| 11 | 기상 환기 60초 경과 | 팬·창문 원복 | 05:50 |
 
-총 소요 약 5분(계산값) + Enter 두 번의 대기 시간. 스크립트 마지막 줄에 실제 소요 시간이 찍히므로 리허설 때 그 값을 여기에 적는다.
+총 소요 약 6분(계산값) + Enter 두 번의 대기 시간. 11/11 리허설 실측: 단계마다 계산값보다 1~3초 늦고, Enter 대기 18초 포함 6분 22초. L1 → L2 → L3 쉼터 카드(기어 D에서 화면 유지) → 스트레칭 → 낮잠 → 기상 환기 원복까지 끊김 없이 돌았다.
+
+스크립트는 시작할 때 호스트 마이크를 끈다(`adb emu avd hostmicoff`). 켜 두면 주변 소리나 TTS 되울림이 대답으로 인식돼 무응답 시나리오가 L2로 넘어가지 않는다. 대답하는 장면을 찍을 때는 `MIC=1 tools/demo.sh`.
