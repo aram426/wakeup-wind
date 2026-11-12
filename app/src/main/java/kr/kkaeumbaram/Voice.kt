@@ -63,7 +63,7 @@ class SpeechQueue(private val onBusy: (Boolean) -> Unit = {}, private val speak:
 
 /**
  * 음성 안내용 오디오 포커스(Pleos 오디오 포커스 가이드). 음악은 끊지 않고 줄이기만(MAY_DUCK) 요청하고, 말이 끝나면 돌려준다.
- * ponytail: 포커스를 뺏겨도(통화 등) 문장을 중간에 끊지 않는다. 안내가 몇 초라서. 긴 오디오를 틀게 되면 LOSS에서 tts.stop().
+ * 포커스를 뺏겨도(통화 등) 문장을 중간에 끊지 않는다. 안내가 몇 초라서. 긴 오디오를 틀게 되면 LOSS에서 tts.stop().
  */
 class AudioFocus(context: Context, private val log: (String) -> Unit) {
     private val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager

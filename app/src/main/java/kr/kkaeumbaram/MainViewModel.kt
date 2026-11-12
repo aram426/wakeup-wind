@@ -37,7 +37,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val main = android.os.Handler(android.os.Looper.getMainLooper())
     private var preroll = false
     // 말 묶음 시작에 포커스를 잡고 150ms 쉰 뒤 첫 문장(Pleos 선행 묵음 가이드: 첫 음절 잘림 방지), 큐가 비면 포커스 반납.
-    // ponytail: TTS SDK가 재생을 쥐고 있어 PCM에 묵음을 못 붙인다 → 지연으로 대신. PCM을 직접 재생하게 되면 패딩으로.
+    // TTS SDK가 재생을 쥐고 있어 PCM에 묵음을 못 붙인다 → 지연으로 대신. PCM을 직접 재생하게 되면 패딩으로.
     private val speech = SpeechQueue(onBusy = { busy -> if (busy) { focus.gain(); preroll = true } else focus.abandon() }) { text, done ->
         val v = voice
         if (v == null) done()
