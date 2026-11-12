@@ -1,6 +1,18 @@
 package kr.kkaeumbaram
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,42 +23,81 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private val Bg = Color(0xFF0E1116)
-private val Panel = Color(0xFF171C24)
-private val Ink = Color(0xFFF2F4F8)
-private val Muted = Color(0xFF8B93A3)
-private val Wind = Color(0xFF3B82F6)
-private val Warn = Color(0xFFF59E0B)
-private val Danger = Color(0xFFEF4444)
-private val Calm = Color(0xFF22C55E)
+// Figma "라이트 v2" 팔레트
+private val Bg = Color(0xFFC9CDCD)
+private val Panel = Color(0xFFF2F2F2)
+private val Ink = Color(0xFF0B0C0C)
+private val Ink2 = Color(0xFF222525)
+private val Muted = Color(0xFF5D6161)
+private val Line = Color(0xFFDADDDD)
+private val Dim = Color(0xFFA7ADAD)
+private val Green = Color(0xFF1E9E4F)
+private val GreenSoft = Color(0xFFDFF2C9)
+private val Yellow = Color(0xFFF5B301)
+private val YellowSoft = Color(0xFFFDF0CC)
+private val Red = Color(0xFFE5383B)
+private val RedSoft = Color(0xFFFAD7D8)
+private val Wind = Color(0xFF1D4ED8)
+
+private fun Level.color() = when (this) { Level.L1 -> Green; Level.L2 -> Yellow; Level.L3 -> Red }
+private fun Level.soft() = when (this) { Level.L1 -> GreenSoft; Level.L2 -> YellowSoft; Level.L3 -> RedSoft }
+
+private val PaneShape = RoundedCornerShape(18.dp)
+private fun Modifier.pane() = this
+    .shadow(4.dp, PaneShape, ambientColor = Color.Black.copy(alpha = 0.10f), spotColor = Color.Black.copy(alpha = 0.10f))
+    .background(Panel, PaneShape)
+
+private const val SlideMs = 450
 
 @Composable
 fun AppScreen(ui: Ui, vm: MainViewModel?) {
-    MaterialTheme(colorScheme = darkColorScheme(primary = Wind, background = Bg, surface = Panel, onSurface = Ink)) {
-        Row(Modifier.fillMaxSize().background(Bg).padding(20.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            StatusPane(ui, Modifier.width(300.dp))
+    MaterialTheme(colorScheme = lightColorScheme(primary = Wind, background = Bg, surface = Panel, onSurface = Ink)) {
+        Row(Modifier.fillMaxSize().background(Bg).padding(21.dp)) {
+            StatusPane(ui, vm, Modifier.width(298.dp))
+            Spacer(Modifier.width(18.dp))
             MainCard(ui, vm, Modifier.weight(1f))
-            DemoPane(ui, vm, Modifier.width(300.dp))
+            // 어드민 뷰: 오른쪽 패널이 밀려 나오며 가운데 카드가 줄어들고, 닫을 땐 반대로 밀려 들어가며 카드가 커진다
+            AnimatedVisibility(
+                visible = ui.admin,
+                enter = expandHorizontally(tween(SlideMs, easing = FastOutSlowInEasing), expandFrom = Alignment.Start) +
+                    slideInHorizontally(tween(SlideMs, easing = FastOutSlowInEasing)) { it },
+                exit = shrinkHorizontally(tween(SlideMs, easing = FastOutSlowInEasing), shrinkTowards = Alignment.Start) +
+                    slideOutHorizontally(tween(SlideMs, easing = FastOutSlowInEasing)) { it },
+            ) {
+                Row {
+                    Spacer(Modifier.width(18.dp))
+                    DemoPane(ui, vm, Modifier.width(298.dp))
+                }
+            }
         }
     }
 }
@@ -54,48 +105,160 @@ fun AppScreen(ui: Ui, vm: MainViewModel?) {
 private fun mmss(sec: Int) = "%d:%02d".format(sec / 60, sec % 60)
 
 @Composable
-private fun StatusPane(ui: Ui, m: Modifier) {
+private fun StatusPane(ui: Ui, vm: MainViewModel?, m: Modifier) {
     val s = ui.s
-    Column(m.fillMaxHeight().background(Panel, RoundedCornerShape(16.dp)).padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Text("깨움바람", color = Ink, fontSize = 26.sp, fontWeight = FontWeight.Bold)
-        Text(if (ui.carConnected) "Vehicle SDK 초기화됨" else "차량 미연결 (로그만)", color = if (ui.carConnected) Calm else Warn, fontSize = 15.sp)
-        Text("음성: ${ui.voiceEngine}", color = Muted, fontSize = 15.sp)
-        Spacer(Modifier.height(4.dp))
-        Stat("연속 주행", mmss(s.sinceStopSec))
-        Stat("다음 환기까지", mmss(maxOf(0, s.intervalSec - s.sinceAlertSec)))
-        Stat("단계", s.level.name + if (s.strongMode) " · 세게" else "", when (s.level) { Level.L1 -> Calm; Level.L2 -> Warn; Level.L3 -> Danger })
-        Spacer(Modifier.height(8.dp))
-        Text("오늘 리포트", color = Muted, fontSize = 14.sp)
-        Stat("환기", "${s.ventCount}회")
-        Stat("최장 연속 주행", mmss(s.longestDriveSec))
-        Stat("평균 반응시간", if (s.reactionMs.isEmpty()) "-" else "${s.avgReactionMs / 1000.0}초")
-        Stat("스트레칭 / 낮잠 / 쉼터", "${s.stretches} / ${s.naps} / ${s.restSuggested}")
+    val vent = s.phase == Phase.VENT
+    Box(m.fillMaxHeight().pane()) {
+        Column(Modifier.padding(22.dp)) {
+            Column(Modifier.height(120.dp)) {
+                Text("깨움바람", color = Ink, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                AnimatedVisibility(ui.admin && !vent, enter = fadeIn(tween(SlideMs)), exit = fadeOut(tween(200))) {
+                    Column {
+                        Spacer(Modifier.height(10.dp))
+                        Row(
+                            Modifier.clip(RoundedCornerShape(14.dp)).background(s.level.soft()).padding(start = 10.dp, end = 12.dp, top = 5.dp, bottom = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Box(Modifier.size(8.dp).background(if (ui.carConnected) s.level.color() else Dim, CircleShape))
+                            Text(if (ui.carConnected) "Vehicle SDK 초기화됨" else "차량 미연결 (로그만)", color = Color.Black, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Text("음성: ${ui.voiceEngine}", color = Muted, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                    }
+                }
+            }
+            SectionLabel("주행 현황")
+            Spacer(Modifier.height(2.dp))
+            StatRow("연속 주행", mmss(s.sinceStopSec))
+            StatRow("단계", "", badge = s.level)
+            Spacer(Modifier.height(26.dp))
+            SectionLabel("오늘 리포트", alpha = if (vent) 0.8f else 1f)
+            Spacer(Modifier.height(2.dp))
+            StatRow("환기", "${s.ventCount}회", compact = vent)
+            StatRow("최장 연속 주행", mmss(s.longestDriveSec), compact = vent)
+            StatRow("평균 반응시간", if (s.reactionMs.isEmpty()) "-" else "${s.avgReactionMs / 1000.0}초", compact = vent)
+            StatRow("스트레칭 / 낮잠 / 쉼터", "${s.stretches} / ${s.naps} / ${s.restSuggested}", compact = vent)
+        }
+        if (s.phase == Phase.DRIVING) VentButton(s.level, Modifier.align(Alignment.BottomCenter).padding(bottom = 55.dp)) { vm?.ventNow() }
     }
 }
 
 @Composable
-private fun Stat(label: String, value: String, color: Color = Ink) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, color = Muted, fontSize = 16.sp); Text(value, color = color, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+private fun SectionLabel(text: String, alpha: Float = 1f) =
+    Text(text, color = Muted.copy(alpha = alpha), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+
+@Composable
+private fun StatRow(label: String, value: String, compact: Boolean = false, badge: Level? = null) {
+    val line = if (compact) Modifier else Modifier.drawBehind { drawLine(Line, Offset(0f, size.height - 0.5f), Offset(size.width, size.height - 0.5f), 1f) }
+    Row(Modifier.fillMaxWidth().height(if (compact) 34.dp else 48.dp).then(line), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Text(label, color = Muted, fontSize = if (compact) 14.sp else 15.sp, fontWeight = FontWeight.Medium)
+        if (badge != null) {
+            Box(Modifier.clip(RoundedCornerShape(14.dp)).background(badge.color()).padding(horizontal = 12.dp, vertical = 3.dp)) {
+                Text(badge.name, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            }
+        } else if (compact) Text(value, color = Ink2, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+        else Text(value, color = Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+/** 지금 환기: 85x62 정사각 버튼, 단계 색. 바람 아이콘은 Figma 벡터(선 2.67, 둥근 끝) 그대로. */
+@Composable
+private fun VentButton(level: Level, m: Modifier, onClick: () -> Unit) {
+    val d = LocalDensity.current.density
+    Canvas(
+        m.size(85.dp, 62.dp)
+            .shadow(8.dp, RoundedCornerShape(0.dp), ambientColor = Wind.copy(alpha = 0.35f), spotColor = Wind.copy(alpha = 0.35f))
+            .background(level.color())
+            .clickable(onClick = onClick),
+    ) {
+        withTransform({ scale(d, d, Offset.Zero); translate(27f + 4f, 15f + 2.667f) }) {
+            val p = Path().apply {
+                moveTo(0f, 8f); lineTo(14.667f, 8f); arcTo(Rect(10.667f, 0f, 18.667f, 8f), 90f, -270f, false)
+                moveTo(0f, 13.333f); lineTo(21.333f, 13.333f); arcTo(Rect(17.333f, 13.333f, 25.333f, 21.333f), -90f, 270f, false)
+                moveTo(0f, 18.667f); lineTo(10.667f, 18.667f); arcTo(Rect(6.667f, 18.667f, 14.667f, 26.667f), -90f, 270f, false)
+            }
+            drawPath(p, Color.White, style = Stroke(2.667f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+        }
+    }
+}
+
+/** 어드민 전환 버튼 36x36. Figma Button/Admin Icon 인스턴스(사람 + 방패, 선 #A7ADAD 2). */
+@Composable
+private fun AdminButton(onClick: () -> Unit, m: Modifier = Modifier) {
+    val d = LocalDensity.current.density
+    val shape = RoundedCornerShape(14.dp)
+    Canvas(m.size(36.dp).clip(shape).background(Panel).border(2.dp, Dim, shape).clickable(onClick = onClick)) {
+        withTransform({ scale(d, d, Offset.Zero); translate(2f, 2f) }) {
+            val st = Stroke(2f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+            drawCircle(Dim, 4f, Offset(14f, 9f), style = st)
+            val shoulders = Path().apply {
+                moveTo(17f, 26f); lineTo(5f, 26f); lineTo(5f, 24f)
+                cubicTo(5f, 19.6f, 9f, 17f, 14f, 17f); cubicTo(16.2f, 17f, 18.2f, 17.5f, 19.8f, 18.5f)
+            }
+            drawPath(shoulders, Dim, style = st)
+            val shield = Path().apply {
+                moveTo(24f, 18f); lineTo(28f, 20f); lineTo(28f, 23.5f)
+                cubicTo(28f, 26f, 26.3f, 27.8f, 24f, 29f); cubicTo(21.7f, 27.8f, 20f, 26f, 20f, 23.5f)
+                lineTo(20f, 20f); close()
+            }
+            drawPath(shield, Dim, style = st)
+        }
     }
 }
 
 @Composable
 private fun MainCard(ui: Ui, vm: MainViewModel?, m: Modifier) {
     val s = ui.s
-    val (title, body, accent) = when (s.phase) {
-        Phase.IDLE -> Triple("대기 중", "출발하면 30분마다 차가 환기하고 안부를 물어요.", Muted)
-        Phase.DRIVING -> Triple("주행 중", "다음 환기까지 ${mmss(maxOf(0, s.intervalSec - s.sinceAlertSec))}", Wind)
-        Phase.VENT -> Triple("환기 중 · ${mmss(60 - s.phaseSec)}", "외기 전환, 팬 강풍, 창문 15%, 시트 통풍", Wind)
-        Phase.QUESTION -> Triple(s.question, if (ui.listening) "듣고 있어요…" else "대답해 주세요 (${15 - s.phaseSec}초)", if (s.level == Level.L1) Wind else Warn)
-        Phase.STRETCH -> Triple("정차 스트레칭 · ${mmss(90 - s.phaseSec)}", "목 좌우 10초 → 어깨 돌리기 20초 → 허리 비틀기 20초 → 손목·발목 20초", Calm)
-        Phase.REST -> Triple("쉼터까지만 가요", "더는 깨우지 않아요. 가까운 곳을 경유지로 넣을게요.", Danger)
-        Phase.NAP -> Triple("충전 중 낮잠 · ${mmss(20 * 60 - s.phaseSec)}", "조명 낮춤, 공조 유지. 끝나면 바람으로 깨워요.", Calm)
+    val lv = s.level
+    Box(m.fillMaxHeight().pane().clip(PaneShape)) {
+        when (s.phase) {
+            Phase.DRIVING -> DrivingScene(ui.speedKmh, Modifier.fillMaxSize())
+            Phase.VENT -> VentScene(Modifier.fillMaxSize())
+            else -> {}
+        }
+        when (s.phase) {
+            Phase.DRIVING -> Column(Modifier.fillMaxSize().padding(28.dp)) {
+                Box(Modifier.width(71.dp).height(6.dp).background(lv.color(), RoundedCornerShape(3.dp)))
+                Spacer(Modifier.height(10.dp))
+                Text("주행 중", color = Ink, fontSize = 34.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(18.dp))
+                Text("다음 환기까지", color = Ink2, fontSize = 22.sp, fontWeight = FontWeight.Medium)
+                Text(mmss(maxOf(0, s.intervalSec - s.sinceAlertSec)), color = Ink, fontSize = 176.sp, lineHeight = 176.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(14.dp))
+                val filled = (s.sinceAlertSec * 10f / s.intervalSec).toInt().coerceIn(0, 10)
+                Row(Modifier.fillMaxWidth().height(26.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    repeat(10) { Box(Modifier.weight(1f).fillMaxHeight().background(if (it < filled) lv.color() else Line, RoundedCornerShape(6.dp))) }
+                }
+            }
+            Phase.VENT -> Column(Modifier.fillMaxSize().padding(28.dp)) {
+                Box(Modifier.width(71.dp).height(6.dp).background(lv.color(), RoundedCornerShape(3.dp)))
+                Spacer(Modifier.height(10.dp))
+                Text("환기 중", color = Ink, fontSize = 34.sp, fontWeight = FontWeight.Bold)
+            }
+            else -> OtherPhase(ui, vm)
+        }
+        AnimatedVisibility(!ui.admin, Modifier.align(Alignment.TopEnd).padding(top = 7.dp, end = 10.dp), enter = fadeIn(tween(SlideMs)), exit = fadeOut(tween(150))) {
+            AdminButton({ vm?.toggleAdmin() })
+        }
     }
-    Column(m.fillMaxHeight().background(Panel, RoundedCornerShape(16.dp)).padding(28.dp), verticalArrangement = Arrangement.SpaceBetween) {
+}
+
+/** Figma에 아직 없는 단계(대기·질문·스트레칭·쉼터·낮잠). 같은 팔레트로 글과 버튼만. */
+@Composable
+private fun OtherPhase(ui: Ui, vm: MainViewModel?) {
+    val s = ui.s
+    val (title, body, accent) = when (s.phase) {
+        Phase.IDLE -> Triple("대기 중", "출발하면 30분마다 차가 환기하고 안부를 물어요.", Dim)
+        Phase.QUESTION -> Triple(s.question, if (ui.listening) "듣고 있어요…" else "대답해 주세요 (${15 - s.phaseSec}초)", s.level.color())
+        Phase.STRETCH -> Triple("정차 스트레칭 · ${mmss(90 - s.phaseSec)}", "목 좌우 10초 → 어깨 돌리기 20초 → 허리 비틀기 20초 → 손목·발목 20초", Green)
+        Phase.REST -> Triple("쉼터까지만 가요", "더는 깨우지 않아요. 가까운 곳을 경유지로 넣을게요.", Red)
+        Phase.NAP -> Triple("충전 중 낮잠 · ${mmss(20 * 60 - s.phaseSec)}", "조명 낮춤, 공조 유지. 끝나면 바람으로 깨워요.", Green)
+        else -> Triple("", "", Dim)
+    }
+    Column(Modifier.fillMaxSize().padding(28.dp), verticalArrangement = Arrangement.SpaceBetween) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(Modifier.width(72.dp).height(6.dp).background(accent, RoundedCornerShape(3.dp)))
-            Text(title, color = Ink, fontSize = if (title.length > 12) 30.sp else 40.sp, fontWeight = FontWeight.Bold, lineHeight = if (title.length > 12) 38.sp else 48.sp)
+            Box(Modifier.width(71.dp).height(6.dp).background(accent, RoundedCornerShape(3.dp)))
+            Text(title, color = Ink, fontSize = if (title.length > 12) 28.sp else 34.sp, fontWeight = FontWeight.Bold, lineHeight = if (title.length > 12) 36.sp else 42.sp)
             Text(body, color = Muted, fontSize = 20.sp, lineHeight = 28.sp)
             if (s.phase == Phase.REST) ui.restOptions.forEachIndexed { i, (r, km) ->
                 Text("${i + 1}. ${r.name} · ${"%.1f".format(km)}km · ${r.road}", color = Ink, fontSize = 20.sp)
@@ -104,12 +267,11 @@ private fun MainCard(ui: Ui, vm: MainViewModel?, m: Modifier) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             when (s.phase) {
                 Phase.IDLE -> Big("출발", Wind) { vm?.start() }
-                Phase.DRIVING -> Big("지금 환기", Wind) { vm?.ventNow() }
-                Phase.VENT -> {}
-                Phase.QUESTION -> { Big("괜찮아요", Calm) { vm?.answered() }; Big("응답 없음(시연)", Danger) { vm?.noAnswer() } }
-                Phase.STRETCH -> Big("다 했어요", Calm) { vm?.stretchDone() }
-                Phase.REST -> { Big("쉼터 경유", Danger) { vm?.restAccept() }; Big("15분 뒤에", Muted) { vm?.restDecline() } }
-                Phase.NAP -> Big("지금 일어날래요", Calm) { vm?.wake() }
+                Phase.QUESTION -> { Big("괜찮아요", Green) { vm?.answered() }; Big("응답 없음(시연)", Red) { vm?.noAnswer() } }
+                Phase.STRETCH -> Big("다 했어요", Green) { vm?.stretchDone() }
+                Phase.REST -> { Big("쉼터 경유", Red) { vm?.restAccept() }; Big("15분 뒤에", Muted) { vm?.restDecline() } }
+                Phase.NAP -> Big("지금 일어날래요", Green) { vm?.wake() }
+                else -> {}
             }
         }
     }
@@ -117,48 +279,96 @@ private fun MainCard(ui: Ui, vm: MainViewModel?, m: Modifier) {
 
 @Composable
 private fun Big(label: String, color: Color, onClick: () -> Unit) {
-    Button(onClick, colors = ButtonDefaults.buttonColors(containerColor = color, contentColor = Color.White), shape = RoundedCornerShape(12.dp)) {
-        Text(label, fontSize = 22.sp, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
+    Box(Modifier.clip(RoundedCornerShape(12.dp)).background(color).clickable(onClick = onClick).padding(horizontal = 24.dp, vertical = 16.dp)) {
+        Text(label, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Medium)
     }
 }
 
 @Composable
 private fun DemoPane(ui: Ui, vm: MainViewModel?, m: Modifier) {
-    Column(m.fillMaxHeight().background(Panel, RoundedCornerShape(16.dp)).padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("시연 모드 (1초=1분)", color = Ink, fontSize = 16.sp); Switch(ui.demo, { vm?.toggleDemo() })
+    Box(m.fillMaxHeight().pane()) {
+        Column(Modifier.fillMaxSize().padding(start = 22.dp, top = 22.dp, end = 22.dp, bottom = 62.dp)) {
+            SectionLabel("시연 · 디버그")
+            Spacer(Modifier.height(10.dp))
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Bg).padding(horizontal = 14.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                ToggleRow("시연 모드 (1초=1분)", ui.demo) { vm?.toggleDemo() }
+                ToggleRow("세게 깨워줘", ui.s.strongMode) { vm?.strongMode(!ui.s.strongMode) }
+            }
+            Spacer(Modifier.height(22.dp))
+            SectionLabel("차량 신호 흉내")
+            Spacer(Modifier.height(2.dp))
+            Text("에뮬레이터 주입 대신", color = Muted, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+            Spacer(Modifier.height(10.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                SignalRow("+10분" to { vm?.fastForward(10) }, "+30분" to { vm?.fastForward(30) })
+                SignalRow("기어 P" to { vm?.gearPark() }, "기어 D" to { vm?.gearDrive() })
+                SignalRow("충전 시작" to { vm?.charge() }, "Gleo: 쉼터 가자" to { vm?.gleo("GO_REST") })
+            }
+            Spacer(Modifier.height(22.dp))
+            SectionLabel("로그")
+            Spacer(Modifier.height(8.dp))
+            LazyColumn(
+                Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(12.dp)).background(Bg).padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                itemsIndexed(ui.log) { i, line ->
+                    Text(line, color = if (i == 0) Ink else Ink2, fontSize = 14.sp, lineHeight = 20.sp, fontWeight = if (i == 0) FontWeight.Bold else FontWeight.Medium)
+                }
+            }
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("세게 깨워줘", color = Ink, fontSize = 16.sp); Switch(ui.s.strongMode, { vm?.strongMode(it) })
-        }
-        Text("차량 신호 흉내 (에뮬레이터 주입 대신)", color = Muted, fontSize = 13.sp)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Small("+10분") { vm?.fastForward(10) }; Small("+30분") { vm?.fastForward(30) } }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Small("기어 P") { vm?.gearPark() }; Small("기어 D") { vm?.gearDrive() } }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Small("충전 시작") { vm?.charge() }; Small("Gleo: 쉼터 가자") { vm?.gleo("GO_REST") } }
-        Spacer(Modifier.height(6.dp))
-        Text("로그", color = Muted, fontSize = 13.sp)
-        LazyColumn(Modifier.weight(1f)) { items(ui.log) { Text(it, color = Muted, fontSize = 12.sp, lineHeight = 16.sp) } }
+        // 어드민 뷰에서의 전환 버튼 위치: 패널 아래 가운데
+        AdminButton({ vm?.toggleAdmin() }, Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp))
     }
 }
 
 @Composable
-private fun Small(label: String, onClick: () -> Unit) {
-    OutlinedButton(onClick, shape = RoundedCornerShape(10.dp)) { Text(label, color = Ink, fontSize = 14.sp) }
+private fun ToggleRow(label: String, on: Boolean, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().height(48.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Text(label, color = Ink, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+        val shape = RoundedCornerShape(18.dp)
+        Box(
+            Modifier.size(64.dp, 36.dp).clip(shape).background(if (on) Wind else Line).border(2.dp, if (on) Wind else Muted, shape).clickable(onClick = onClick),
+        ) {
+            Box(Modifier.align(if (on) Alignment.CenterEnd else Alignment.CenterStart).padding(horizontal = 5.dp).size(22.dp).background(if (on) Color.White else Muted, CircleShape))
+        }
+    }
+}
+
+@Composable
+private fun SignalRow(a: Pair<String, () -> Unit>, b: Pair<String, () -> Unit>) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Signal(a.first, a.second, Modifier.weight(1f)); Signal(b.first, b.second, Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun Signal(label: String, onClick: () -> Unit, m: Modifier) {
+    val shape = RoundedCornerShape(14.dp)
+    Box(m.height(56.dp).clip(shape).background(Panel).border(2.dp, Muted, shape).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
+        Text(label, color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+    }
 }
 
 // ---- Android Studio Preview (에뮬레이터 없이 화면만 확인; Split/Design 탭) ----
 // vm = null 이라 버튼은 안 눌림. 상태만 바꿔가며 디자인 확인용.
 private val previewStops = listOf(RestStop("안성 졸음쉼터", 37.0, 127.2, "경부고속도로") to 3.2, RestStop("오산 휴게소", 37.1, 127.1, "경부고속도로") to 8.7)
-private fun previewUi(phase: Phase, sec: Int = 0, q: String = "") = Ui(
-    s = State(phase = phase, phaseSec = sec, sinceStopSec = 95 * 60, sinceAlertSec = 27 * 60, question = q, ventCount = 3, reactionMs = listOf(2100, 3400)),
+private fun previewUi(phase: Phase, sec: Int = 0, q: String = "", level: Level = Level.L1, admin: Boolean = false) = Ui(
+    s = State(phase = phase, phaseSec = sec, level = level, sinceStopSec = 95 * 60, sinceAlertSec = 27 * 60, question = q, ventCount = 3, reactionMs = listOf(2100, 3400)),
     carConnected = true, voiceEngine = "Pleos TTS/STT", listening = phase == Phase.QUESTION,
     restOptions = if (phase == Phase.REST) previewStops else emptyList(),
     log = listOf("환기 3회째", "기어 D", "Vehicle SDK 초기화됨"),
+    admin = admin,
 )
 
-@Preview(name = "주행", widthDp = 1280, heightDp = 720) @Composable private fun PvDriving() = AppScreen(previewUi(Phase.DRIVING), null)
-@Preview(name = "환기", widthDp = 1280, heightDp = 720) @Composable private fun PvVent() = AppScreen(previewUi(Phase.VENT, 12), null)
+@Preview(name = "주행 L1", widthDp = 1280, heightDp = 720) @Composable private fun PvDriving() = AppScreen(previewUi(Phase.DRIVING), null)
+@Preview(name = "주행 L1 어드민", widthDp = 1280, heightDp = 720) @Composable private fun PvDrivingAdmin() = AppScreen(previewUi(Phase.DRIVING, admin = true), null)
+@Preview(name = "주행 L2", widthDp = 1280, heightDp = 720) @Composable private fun PvDrivingL2() = AppScreen(previewUi(Phase.DRIVING, level = Level.L2), null)
+@Preview(name = "주행 L2 어드민", widthDp = 1280, heightDp = 720) @Composable private fun PvDrivingL2Admin() = AppScreen(previewUi(Phase.DRIVING, level = Level.L2, admin = true), null)
+@Preview(name = "환기 L1", widthDp = 1280, heightDp = 720) @Composable private fun PvVent() = AppScreen(previewUi(Phase.VENT, 12), null)
+@Preview(name = "환기 L1 어드민", widthDp = 1280, heightDp = 720) @Composable private fun PvVentAdmin() = AppScreen(previewUi(Phase.VENT, 12, admin = true), null)
+@Preview(name = "환기 L2", widthDp = 1280, heightDp = 720) @Composable private fun PvVentL2() = AppScreen(previewUi(Phase.VENT, 12, level = Level.L2), null)
+@Preview(name = "환기 L2 어드민", widthDp = 1280, heightDp = 720) @Composable private fun PvVentL2Admin() = AppScreen(previewUi(Phase.VENT, 12, level = Level.L2, admin = true), null)
 @Preview(name = "질문", widthDp = 1280, heightDp = 720) @Composable private fun PvQuestion() = AppScreen(previewUi(Phase.QUESTION, 4, "오늘 몇 개 남았어요?"), null)
 @Preview(name = "스트레칭", widthDp = 1280, heightDp = 720) @Composable private fun PvStretch() = AppScreen(previewUi(Phase.STRETCH, 20), null)
-@Preview(name = "휴식 제안", widthDp = 1280, heightDp = 720) @Composable private fun PvRest() = AppScreen(previewUi(Phase.REST), null)
+@Preview(name = "휴식 제안", widthDp = 1280, heightDp = 720) @Composable private fun PvRest() = AppScreen(previewUi(Phase.REST, level = Level.L3), null)
 @Preview(name = "쪽잠", widthDp = 1280, heightDp = 720) @Composable private fun PvNap() = AppScreen(previewUi(Phase.NAP, 8 * 60), null)

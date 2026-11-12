@@ -17,6 +17,8 @@ data class Ui(
     val listening: Boolean = false,
     val restOptions: List<Pair<RestStop, Double>> = emptyList(),
     val log: List<String> = emptyList(),
+    val admin: Boolean = false,          // 어드민 뷰: 오른쪽 시연·디버그 패널이 열린 상태
+    val speedKmh: Float = 60f,           // 트럭 애니메이션 속도. 차량 속도 신호를 받으면 setSpeed로 넣는다
 )
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
@@ -85,6 +87,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun restDecline() = engine.restDeclined()
     fun strongMode(on: Boolean) = engine.setStrongMode(on)
     fun toggleDemo() = _ui.update { it.copy(demo = !it.demo) }
+    fun toggleAdmin() = _ui.update { it.copy(admin = !it.admin) }
+    fun setSpeed(kmh: Float) = _ui.update { it.copy(speedKmh = kmh.coerceAtLeast(0f)) }
     fun fastForward(min: Int) = engine.tick(min * 60)
 
     fun gleo(action: String) {
