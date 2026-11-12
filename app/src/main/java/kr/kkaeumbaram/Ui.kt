@@ -52,10 +52,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlin.math.roundToInt
 
 // Figma "라이트 v2" 팔레트
 private val Bg = Color(0xFFC9CDCD)
@@ -86,9 +84,6 @@ private fun Modifier.pane() = this
 private const val SlideMs = 450
 
 // 화면 규격과 앱 패널 절대 좌표 (px). 시안 프레임은 폭 1280 기준.
-private const val ScreenW = 2560f
-private const val PanelX = 853f
-private const val PanelY = 90f
 private const val PanelW = 1682f
 private const val PanelH = 1210f
 private const val DesignW = 1280f
@@ -96,13 +91,13 @@ private const val DesignW = 1280f
 @Composable
 fun AppScreen(ui: Ui, vm: MainViewModel?) {
     MaterialTheme(colorScheme = lightColorScheme(primary = Wind, background = Bg, surface = Panel, onSurface = Ink)) {
-        // 화면 2560x1440 중 앱 패널은 x853~2535, y90~1300 (1682x1210). 화면 폭 비율(k)로 어떤 해상도에서도 같은 비례를 유지한다.
+        // 액티비티 창 자체가 앱 패널(2560x1440 화면에서 1682x1210)이다. 창 폭 비율(k)로 어떤 해상도에서도 같은 비례를 유지한다.
         BoxWithConstraints(Modifier.fillMaxSize().background(Bg)) {
-            val k = constraints.maxWidth / ScreenW
+            val k = constraints.maxWidth / PanelW
             // 패널 안쪽은 시안(폭 1280) 기준 dp로 짜여 있어, 패널 폭에 맞춰 density를 키우면 dp·sp가 함께 비례 확대된다.
             val u = PanelW * k / DesignW
             val inner = Density(u, LocalDensity.current.fontScale)
-            Box(Modifier.offset { IntOffset((PanelX * k).roundToInt(), (PanelY * k).roundToInt()) }) {
+            Box {
                 CompositionLocalProvider(LocalDensity provides inner) {
                     Row(Modifier.size(DesignW.dp, (PanelH * k / u).dp).background(Bg).padding(21.dp)) {
                         StatusPane(ui, vm, Modifier.width(298.dp))
@@ -483,20 +478,20 @@ private fun previewUi(phase: Phase, sec: Int = 0, q: String = "", level: Level =
     admin = admin,
 )
 
-@Preview(name = "주행 L1", widthDp = 2560, heightDp = 1440) @Composable private fun PvDriving() = AppScreen(previewUi(Phase.DRIVING), null)
-@Preview(name = "주행 L1 어드민", widthDp = 2560, heightDp = 1440) @Composable private fun PvDrivingAdmin() = AppScreen(previewUi(Phase.DRIVING, admin = true), null)
-@Preview(name = "주행 L2", widthDp = 2560, heightDp = 1440) @Composable private fun PvDrivingL2() = AppScreen(previewUi(Phase.DRIVING, level = Level.L2), null)
-@Preview(name = "주행 L2 어드민", widthDp = 2560, heightDp = 1440) @Composable private fun PvDrivingL2Admin() = AppScreen(previewUi(Phase.DRIVING, level = Level.L2, admin = true), null)
-@Preview(name = "환기 L1", widthDp = 2560, heightDp = 1440) @Composable private fun PvVent() = AppScreen(previewUi(Phase.VENT, 12), null)
-@Preview(name = "환기 L1 어드민", widthDp = 2560, heightDp = 1440) @Composable private fun PvVentAdmin() = AppScreen(previewUi(Phase.VENT, 12, admin = true), null)
-@Preview(name = "환기 L2", widthDp = 2560, heightDp = 1440) @Composable private fun PvVentL2() = AppScreen(previewUi(Phase.VENT, 12, level = Level.L2), null)
-@Preview(name = "환기 L2 어드민", widthDp = 2560, heightDp = 1440) @Composable private fun PvVentL2Admin() = AppScreen(previewUi(Phase.VENT, 12, level = Level.L2, admin = true), null)
-@Preview(name = "대기", widthDp = 2560, heightDp = 1440) @Composable private fun PvIdle() = AppScreen(previewUi(Phase.IDLE), null)
-@Preview(name = "대기 어드민", widthDp = 2560, heightDp = 1440) @Composable private fun PvIdleAdmin() = AppScreen(previewUi(Phase.IDLE, admin = true), null)
-@Preview(name = "질문", widthDp = 2560, heightDp = 1440) @Composable private fun PvQuestion() = AppScreen(previewUi(Phase.QUESTION, 4, "오늘 몇 개 남았어요?"), null)
-@Preview(name = "질문 어드민", widthDp = 2560, heightDp = 1440) @Composable private fun PvQuestionAdmin() = AppScreen(previewUi(Phase.QUESTION, 4, "오늘 몇 개 남았어요?", admin = true), null)
-@Preview(name = "질문 L2", widthDp = 2560, heightDp = 1440) @Composable private fun PvQuestionL2() = AppScreen(previewUi(Phase.QUESTION, 4, "오늘 몇 개 남았어요?", level = Level.L2), null)
-@Preview(name = "스트레칭", widthDp = 2560, heightDp = 1440) @Composable private fun PvStretch() = AppScreen(previewUi(Phase.STRETCH, 20), null)
-@Preview(name = "휴식 제안", widthDp = 2560, heightDp = 1440) @Composable private fun PvRest() = AppScreen(previewUi(Phase.REST, level = Level.L3), null)
-@Preview(name = "휴식 제안 어드민", widthDp = 2560, heightDp = 1440) @Composable private fun PvRestAdmin() = AppScreen(previewUi(Phase.REST, level = Level.L3, admin = true), null)
-@Preview(name = "쪽잠", widthDp = 2560, heightDp = 1440) @Composable private fun PvNap() = AppScreen(previewUi(Phase.NAP, 8 * 60), null)
+@Preview(name = "주행 L1", widthDp = 1682, heightDp = 1210) @Composable private fun PvDriving() = AppScreen(previewUi(Phase.DRIVING), null)
+@Preview(name = "주행 L1 어드민", widthDp = 1682, heightDp = 1210) @Composable private fun PvDrivingAdmin() = AppScreen(previewUi(Phase.DRIVING, admin = true), null)
+@Preview(name = "주행 L2", widthDp = 1682, heightDp = 1210) @Composable private fun PvDrivingL2() = AppScreen(previewUi(Phase.DRIVING, level = Level.L2), null)
+@Preview(name = "주행 L2 어드민", widthDp = 1682, heightDp = 1210) @Composable private fun PvDrivingL2Admin() = AppScreen(previewUi(Phase.DRIVING, level = Level.L2, admin = true), null)
+@Preview(name = "환기 L1", widthDp = 1682, heightDp = 1210) @Composable private fun PvVent() = AppScreen(previewUi(Phase.VENT, 12), null)
+@Preview(name = "환기 L1 어드민", widthDp = 1682, heightDp = 1210) @Composable private fun PvVentAdmin() = AppScreen(previewUi(Phase.VENT, 12, admin = true), null)
+@Preview(name = "환기 L2", widthDp = 1682, heightDp = 1210) @Composable private fun PvVentL2() = AppScreen(previewUi(Phase.VENT, 12, level = Level.L2), null)
+@Preview(name = "환기 L2 어드민", widthDp = 1682, heightDp = 1210) @Composable private fun PvVentL2Admin() = AppScreen(previewUi(Phase.VENT, 12, level = Level.L2, admin = true), null)
+@Preview(name = "대기", widthDp = 1682, heightDp = 1210) @Composable private fun PvIdle() = AppScreen(previewUi(Phase.IDLE), null)
+@Preview(name = "대기 어드민", widthDp = 1682, heightDp = 1210) @Composable private fun PvIdleAdmin() = AppScreen(previewUi(Phase.IDLE, admin = true), null)
+@Preview(name = "질문", widthDp = 1682, heightDp = 1210) @Composable private fun PvQuestion() = AppScreen(previewUi(Phase.QUESTION, 4, "오늘 몇 개 남았어요?"), null)
+@Preview(name = "질문 어드민", widthDp = 1682, heightDp = 1210) @Composable private fun PvQuestionAdmin() = AppScreen(previewUi(Phase.QUESTION, 4, "오늘 몇 개 남았어요?", admin = true), null)
+@Preview(name = "질문 L2", widthDp = 1682, heightDp = 1210) @Composable private fun PvQuestionL2() = AppScreen(previewUi(Phase.QUESTION, 4, "오늘 몇 개 남았어요?", level = Level.L2), null)
+@Preview(name = "스트레칭", widthDp = 1682, heightDp = 1210) @Composable private fun PvStretch() = AppScreen(previewUi(Phase.STRETCH, 20), null)
+@Preview(name = "휴식 제안", widthDp = 1682, heightDp = 1210) @Composable private fun PvRest() = AppScreen(previewUi(Phase.REST, level = Level.L3), null)
+@Preview(name = "휴식 제안 어드민", widthDp = 1682, heightDp = 1210) @Composable private fun PvRestAdmin() = AppScreen(previewUi(Phase.REST, level = Level.L3, admin = true), null)
+@Preview(name = "쪽잠", widthDp = 1682, heightDp = 1210) @Composable private fun PvNap() = AppScreen(previewUi(Phase.NAP, 8 * 60), null)
