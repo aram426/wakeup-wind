@@ -49,7 +49,7 @@ fun DrivingScene(speedKmh: Float, modifier: Modifier = Modifier) {
     Canvas(modifier) {
         val u = DrivingArt.UNIT * dp
         val ox = (size.width - 606 * dp) / 2f
-        val oy = 117 * dp
+        val oy = 317.7f * dp   // Figma v3: fx/driving y 417.6px
         val moving = speed > 1f
         val pal = DrivingArt.pal
 
@@ -108,7 +108,7 @@ fun VentScene(modifier: Modifier = Modifier) {
     Canvas(modifier) {
         val u = WindArt.UNIT * dp
         val ox = (size.width - 606 * dp) / 2f
-        val oy = -28 * dp
+        val oy = 72.4f * dp    // Figma v3: fx/wind y 95.1px
         val pal = WindArt.pal
         val pivot = Offset(ox + 305 * dp, oy + 395 * dp)
         val twoPi = (2 * PI).toFloat()
@@ -144,6 +144,72 @@ fun VentScene(modifier: Modifier = Modifier) {
             val q = mod(t + j * 0.25f, 1f)
             val a = 0.3f + 0.7f * (1f - abs(2f * q - 1f))
             drawPx(WindArt.sparkles.subList(j * 3, j * 3 + 3), pal, u, ox, oy, alpha = a)
+        }
+    }
+}
+
+/**
+ * 질문 장면(Figma fx/listening). 마이크는 그대로 두고, 음파 세 겹이 안쪽부터 차례로 밝아졌다 꺼지며 바깥으로 번진다.
+ * 배경 원은 숨 쉬듯 옅어지고, 십자 반짝이가 엇갈려 깜빡인다.
+ */
+@Composable
+fun ListeningScene(modifier: Modifier = Modifier) {
+    val tr = rememberInfiniteTransition(label = "listening")
+    val t by tr.animateFloat(0f, 1f, infiniteRepeatable(tween(2000, easing = LinearEasing), RepeatMode.Restart), label = "t")
+    val dp = LocalDensity.current.density
+    Canvas(modifier) {
+        val u = MicArt.UNIT * dp
+        val ox = (size.width - 606 * dp) / 2f
+        val oy = 100.4f * dp   // Figma v3: fx/listening y 131.9px
+        val pal = MicArt.pal
+
+        drawPx(MicArt.disc, pal, u, ox, oy, alpha = 0.45f * (0.85f + 0.15f * sin(2 * PI.toFloat() * t)))
+        listOf(MicArt.wave1, MicArt.wave2, MicArt.wave3).forEachIndexed { k, wave ->
+            val p = mod(t - k * 0.2f, 1f)
+            drawPx(wave, pal, u, ox, oy, alpha = 0.35f + 0.65f * sin(PI.toFloat() * p))
+        }
+        drawPx(MicArt.mic, pal, u, ox, oy)
+        for (j in 0..3) {
+            val q = mod(t + j * 0.25f, 1f)
+            drawPx(MicArt.sparkles.subList(j * 3, j * 3 + 3), pal, u, ox, oy, alpha = 0.3f + 0.7f * (1f - abs(2f * q - 1f)))
+        }
+    }
+}
+
+/**
+ * 쉼터 제안 장면(Figma fx/rest stop). 카드가 어드민 뷰로 좁아지면(606dp) 장면도 1.08배, 넓으면(922dp) 1.3배로 따라 줄고 커진다.
+ * 도로는 카드 폭 전체, 화살표는 옅은 것부터 차례로 켜지며 쉼터 표지판 쪽을 가리킨다.
+ */
+@Composable
+fun RestScene(modifier: Modifier = Modifier) {
+    val tr = rememberInfiniteTransition(label = "rest")
+    val t by tr.animateFloat(0f, 1f, infiniteRepeatable(tween(1500, easing = LinearEasing), RepeatMode.Restart), label = "t")
+    val dp = LocalDensity.current.density
+    Canvas(modifier) {
+        val k = ((size.width / dp - 606f) / (922f - 606f)).coerceIn(0f, 1f)
+        val s = 1.08f + 0.22f * k
+        val ox = (-28.8f + (35.5f + 28.8f) * k) * dp
+        val oy = (266.1f + (156.5f - 266.1f) * k) * dp
+        val u = RestArt.UNIT * s * dp
+        val ru = RestArt.ROAD_UNIT * s * dp
+        val pal = RestArt.pal
+
+        // 도로: 위·아래 진한 줄 사이에 밝은 줄, 가운데 줄에 차선 점선(4칸 + 3칸 간격)
+        val rows = listOf(Color(0xFF5D6161), Color(0xFFA7ADAD), Color(0xFFA7ADAD), Color(0xFFA7ADAD), Color(0xFFA7ADAD), Color(0xFFA7ADAD), Color(0xFF5D6161))
+        rows.forEachIndexed { i, c -> drawRect(c, Offset(0f, oy + (42 + i) * ru), Size(size.width, ru)) }
+        var gx = 2f - 7f * 4
+        while (ox + gx * ru < size.width) {
+            drawRect(Color(0xFFF2F2F2), Offset(ox + gx * ru, oy + 45 * ru), Size(4 * ru, ru))
+            gx += 7f
+        }
+
+        drawPx(RestArt.speedLines, pal, u, ox, oy)
+        drawPx(RestArt.truck, pal, u, ox, oy)
+        drawPx(RestArt.sign, pal, u, ox, oy)
+        // 화살표: 한 개씩 차례로 진해지며 흐른다
+        for (j in 0..2) {
+            val p = mod(t - j * 0.18f, 1f)
+            drawPx(RestArt.chevrons.subList(j * 5, j * 5 + 5), pal, u, ox, oy, alpha = 0.4f + 0.6f * (1f - p))
         }
     }
 }
