@@ -83,7 +83,7 @@ Pleos SDK는 `settings.gradle.kts`의 Pleos Maven에서 받는다.
 
 ### 마이크 (맥 → 에뮬레이터 STT)
 
-1. 에뮬레이터는 반드시 **Terminal 앱에서 직접** 띄운다. Claude Code나 백그라운드에서 띄우면 macOS 마이크 권한 팝업이 안 떠서 무음만 들어간다. 시스템 설정 > 개인정보 보호 및 보안 > 마이크에 "터미널"이 켜져 있어야 한다.
+1. 에뮬레이터는 반드시 **Terminal 앱에서 직접** 띄운다. IDE 내장 터미널이나 백그라운드에서 띄우면 macOS 마이크 권한 팝업이 안 떠서 무음만 들어간다. 시스템 설정 > 개인정보 보호 및 보안 > 마이크에 "터미널"이 켜져 있어야 한다.
 2. 호스트 마이크 전달은 기본 꺼짐. 부팅 후 `adb emu avd hostmicon` 한 번 실행(또는 에뮬레이터 ⋯ > Microphone > "Virtual microphone uses host audio input").
 3. 앱에 `RECORD_AUDIO` 권한이 있어야 한다(쉼터 거리 계산용 위치는 `pleos.car.permission.FUSED_LOCATION`, 런타임 권한이라 첫 실행 팝업 또는 `pm grant`). 에뮬레이터 앱은 사용자 10으로 돌기 때문에 adb로 줄 때는 `pm grant --user 10 …`. 첫 실행 팝업에서 허용하거나 `adb shell pm grant --user 10 kr.kkaeumbaram android.permission.RECORD_AUDIO`.
 

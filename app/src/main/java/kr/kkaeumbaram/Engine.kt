@@ -57,7 +57,7 @@ class Engine(private val now: () -> Long = System::currentTimeMillis) {
     private var airing = false   // 낮잠 기상 환기 중(IDLE). ventSec 뒤나 출발·충전 때 원복
     private fun airOff() { if (airing) { airing = false; onEffect(Effect.VentOff) } }
 
-    // ponytail: 콜백 하나. 코루틴/Flow는 ViewModel이 감싼다.
+    // 콜백 하나. 코루틴/Flow는 ViewModel이 감싼다.
     var onEffect: (Effect) -> Unit = {}
     fun observe(l: (State) -> Unit) { listeners += l; l(state) }
     private fun set(s: State) { state = s; listeners.forEach { it(s) } }
