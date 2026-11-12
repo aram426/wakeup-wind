@@ -35,7 +35,7 @@ object RestStops {
     /**
      * 가장 가까운 쉼터 1곳. 진행 방향(heading, 북=0)을 알면 앞쪽 ±60° 안에서 고른다.
      * 고속도로 쉼터는 반대 차로가 직선으로 더 가까운 일이 흔해서, 방향을 안 보면 못 가는 곳을 고른다.
-     * ponytail: 직선거리 기준. 실제 주행거리·시간은 경유지로 넣은 뒤 내비(onWayPointInfo)가 준다.
+     * 직선거리 기준. 실제 주행거리·시간은 경유지로 넣은 뒤 내비(onWayPointInfo)가 준다.
      */
     fun pick(all: List<RestStop>, lat: Double, lon: Double, heading: Float?): RestStop? {
         val ahead = if (heading == null) all else all.filter {
