@@ -43,7 +43,7 @@ Pleos SDK는 `settings.gradle.kts`의 Pleos Maven에서 받는다.
 | `Voice.kt` | `PleosVoice`(TTS/STT ON_DEVICE) → 실패 시 `AndroidVoice`(기본 엔진) |
 | `MainViewModel.kt` | Engine 효과를 Car/Voice로 연결, 1초 틱, 시연 모드 |
 | `Ui.kt` | 3단 화면: 상태·리포트 / 메인 카드 / 시연 패널·로그 |
-| `GleoReceiver.kt` + `assets/gleo_schema.json` | Gleo 발화 → Action 브로드캐스트 (VENT_NOW, I_AM_FINE, GO_REST, STRONG_MODE) |
+| `GleoReceiver.kt` + `assets/gleo_schema.json` | Gleo Interface 연동 준비: App Schema와 Action 브로드캐스트 수신부 (VENT_NOW, I_AM_FINE, GO_REST, STRONG_MODE). App Schema 승인 전이라 실제 Gleo 발화로는 호출되지 않고, 시연은 `adb` 브로드캐스트와 시연 패널 버튼으로 같은 Action을 보낸다 |
 | `assets/rest_stops.csv` | 졸음쉼터 좌표(`name,lat,lon,road`). data.go.kr 15028203 한국도로공사 졸음쉼터 전국 253곳 |
 
 ## 시연 모드
