@@ -137,7 +137,7 @@ private fun StatusPane(ui: Ui, vm: MainViewModel?, m: Modifier) {
             StatRow("환기", "${s.ventCount}회", compact = vent)
             StatRow("최장 연속 주행", mmss(s.longestDriveSec), compact = vent)
             StatRow("평균 반응시간", if (s.reactionMs.isEmpty()) "-" else "${s.avgReactionMs / 1000.0}초", compact = vent)
-            StatRow("스트레칭 / 낮잠 / 쉼터", "${s.stretches} / ${s.naps} / ${s.restSuggested}", compact = vent)
+            StatRow("휴식 이행", "${s.restAccepted} / ${s.restSuggested}", compact = vent)
         }
         if (s.phase == Phase.DRIVING) VentButton(s.level, Modifier.align(Alignment.BottomCenter).padding(bottom = 55.dp)) { vm?.ventNow() }
     }
@@ -353,7 +353,7 @@ private fun Signal(label: String, onClick: () -> Unit, m: Modifier) {
 // vm = null 이라 버튼은 안 눌림. 상태만 바꿔가며 디자인 확인용.
 private val previewStops = listOf(RestStop("안성 졸음쉼터", 37.0, 127.2, "경부고속도로") to 3.2, RestStop("오산 휴게소", 37.1, 127.1, "경부고속도로") to 8.7)
 private fun previewUi(phase: Phase, sec: Int = 0, q: String = "", level: Level = Level.L1, admin: Boolean = false) = Ui(
-    s = State(phase = phase, phaseSec = sec, level = level, sinceStopSec = 95 * 60, sinceAlertSec = 27 * 60, question = q, ventCount = 3, reactionMs = listOf(2100, 3400)),
+    s = State(phase = phase, phaseSec = sec, level = level, sinceStopSec = 95 * 60, sinceAlertSec = 27 * 60, question = q, ventCount = 3, longestDriveSec = 95 * 60, reactionMs = listOf(2100, 3400, 1200), restSuggested = 2, restAccepted = 1),
     carConnected = true, voiceEngine = "Pleos TTS/STT", listening = phase == Phase.QUESTION,
     restOptions = if (phase == Phase.REST) previewStops else emptyList(),
     log = listOf("환기 3회째", "기어 D", "Vehicle SDK 초기화됨"),
