@@ -41,6 +41,7 @@ class EngineTest {
         assertEquals(Level.L3, e.state.level)
         assertTrue(fx.any { it is Effect.SuggestRest })
         e.restAccepted()
+        assertTrue(fx.any { it is Effect.AddRestWaypoint })
         assertEquals(Phase.DRIVING, e.state.phase)
     }
 

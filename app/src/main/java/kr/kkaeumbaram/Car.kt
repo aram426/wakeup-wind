@@ -184,7 +184,11 @@ class PleosCar(
     override fun lastLocation(cb: (Double, Double, Float?) -> Unit) {
         runCatching {
             fused.getLastKnownLocation(object : FusedLocationListener {
-                override fun onChanged(d: LocationData?) { if (d != null) cb(d.latitude, d.longitude, d.heading) else { l("위치 없음, 기본 좌표"); cb(37.4598, 127.0439, null) } }
+                // 에뮬레이터 기본 GPS는 구글 본사(37.42, -122.08)라 한국 밖이면 버린다. 데모는 `adb emu geo fix`로 국내 좌표를 넣는다.
+                override fun onChanged(d: LocationData?) {
+                    if (d != null && d.latitude in 33.0..39.0 && d.longitude in 124.0..132.0) cb(d.latitude, d.longitude, d.heading)
+                    else { l("위치 없음/국외(${d?.latitude}, ${d?.longitude}), 기본 좌표"); cb(37.4598, 127.0439, null) }
+                }
                 override fun onError(e: Exception) { l("위치 실패: ${e.message}"); cb(37.4598, 127.0439, null) }
             })
         }.onFailure { l("위치 호출 실패: ${it.message}"); cb(37.4598, 127.0439, null) }

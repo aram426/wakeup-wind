@@ -26,6 +26,7 @@ con gear Park
 U=$(adb shell am get-current-user | tr -d '\r')   # 에뮬레이터 앱은 사용자 10으로 돈다. --user 없이 grant하면 0번에만 들어가 팝업이 뜬다
 adb shell pm grant --user "$U" $PKG android.permission.RECORD_AUDIO 2>/dev/null
 adb shell pm grant --user "$U" $PKG pleos.car.permission.FUSED_LOCATION 2>/dev/null   # 없으면 쉼터 거리가 기본 좌표(서울 양재) 기준
+adb emu geo fix 127.0439 37.4598 >/dev/null   # 에뮬레이터 GPS를 서울만남의광장으로(기본값은 미국)
 adb shell am start -n $PKG/.MainActivity >/dev/null
 pause "앱 실행(기어 P). 화면에 '대기 중' 카드와 오른쪽 시연 패널, 위에 팝업이 없는지 확인."
 con hvac power=true;  say "HVAC 전원 ON (팬 속도 제어 전제)"

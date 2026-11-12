@@ -17,7 +17,7 @@ data class Ui(
     val listening: Boolean = false,
     val rest: RestStop? = null,          // L3에서 고른 쉼터 1곳
     val restKm: Double = 0.0,            // 직선거리(폴백 표시용)
-    val restNavi: Pair<Int, Int>? = null, // 내비가 준 남은 거리 m, 시간 s
+    val restNavi: Pair<Int, Int>? = null, // 경유지 추가 뒤 내비가 준 남은 거리 m, 시간 s (경로가 있을 때만)
     val log: List<String> = emptyList(),
     val admin: Boolean = false,          // 어드민 뷰: 오른쪽 시연·디버그 패널이 열린 상태
     val speedKmh: Float = 60f,           // 트럭 애니메이션 속도. 차량 속도 신호를 받으면 setSpeed로 넣는다
@@ -87,9 +87,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             Effect.SuggestRest -> car.lastLocation { lat, lon, heading ->
                 val r = RestStops.pick(stops, lat, lon, heading) ?: return@lastLocation
                 _ui.update { it.copy(rest = r, restKm = r.distanceKm(lat, lon), restNavi = null) }
+            }
+            Effect.AddRestWaypoint -> _ui.value.rest?.let { r ->
                 car.addWaypoint(r.lat, r.lon, r.name) { m, s -> _ui.update { it.copy(restNavi = m to s) } }
             }
-            Effect.RemoveRestWaypoint -> { car.removeWaypoint(); _ui.update { it.copy(restNavi = null) } }
         }
     }
 

@@ -330,15 +330,19 @@ private fun RestPhase(ui: Ui, vm: MainViewModel?) {
         Spacer(Modifier.height(10.dp))
         Text("쉼터까지만 가요", color = Ink, fontSize = 40.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(6.dp))
-        Text("더는 깨우지 않아요. 가장 가까운 쉼터를 경유지에 넣었어요.", color = Ink2, fontSize = 20.sp, lineHeight = 28.sp, fontWeight = FontWeight.Medium)
+        Text("더는 깨우지 않아요. 진행 방향에서 가장 가까운 쉼터예요.", color = Ink2, fontSize = 20.sp, lineHeight = 28.sp, fontWeight = FontWeight.Medium)
         Spacer(Modifier.height(14.dp))
         ui.rest?.let { RestCard(it, ui.restKm, ui.restNavi) { vm?.restAccept() } }
         Spacer(Modifier.height(12.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End)) {
             Box(
                 Modifier.height(38.dp).clip(Corner).border(2.dp, Muted, Corner).clickable { vm?.restDecline() }.padding(horizontal = 20.dp),
                 contentAlignment = Alignment.Center,
             ) { Text("15분 뒤에", color = Muted, fontSize = 18.sp, fontWeight = FontWeight.Medium) }
+            Box(
+                Modifier.height(38.dp).clip(Corner).background(RedDeep).clickable { vm?.restAccept() }.padding(horizontal = 20.dp),
+                contentAlignment = Alignment.Center,
+            ) { Text("쉼터 경유", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold) }
         }
     }
 }
