@@ -39,8 +39,8 @@ class EngineTest {
         e.tick(15)                       // 타임아웃 → 무응답
         assertEquals(Phase.REST, e.state.phase)
         assertEquals(Level.L3, e.state.level)
+        assertTrue(fx.any { it is Effect.SuggestRest })
         e.restAccepted()
-        assertTrue(fx.any { it is Effect.AddRestWaypoint })
         assertEquals(Phase.DRIVING, e.state.phase)
     }
 

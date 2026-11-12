@@ -15,8 +15,8 @@ sealed class Effect {
     object VolumeUp : Effect()
     object VolumeNormal : Effect()
     data class Light(val on: Boolean) : Effect()
-    object SuggestRest : Effect()                        // UI: 쉼터 3곳 보여주기
-    object AddRestWaypoint : Effect()
+    object SuggestRest : Effect()                        // 가장 가까운 쉼터 1곳을 고르고 경유지로 넣는다
+    object RemoveRestWaypoint : Effect()                 // 15분 뒤에 → 경유지 뺌
 }
 
 data class State(
@@ -177,13 +177,13 @@ class Engine(private val now: () -> Long = System::currentTimeMillis) {
 
     fun restAccepted() {
         if (state.phase != Phase.REST) return
-        onEffect(Effect.AddRestWaypoint)
-        onEffect(Effect.Say("쉼터를 경유지에 넣었어요. 도착하면 알려 드릴게요."))
+        onEffect(Effect.Say("쉼터로 안내할게요. 도착하면 알려 드릴게요."))
         set(state.copy(phase = Phase.DRIVING, phaseSec = 0, level = Level.L1, noAnswerStreak = 0, sinceAlertSec = 0, restDeclinedSec = -1, restAccepted = state.restAccepted + 1))
     }
 
     fun restDeclined() {
         if (state.phase != Phase.REST) return
+        onEffect(Effect.RemoveRestWaypoint)
         onEffect(Effect.Say("알겠어요. 15분 뒤에 다시 물어볼게요."))
         set(state.copy(phase = Phase.DRIVING, phaseSec = 0, level = Level.L2, noAnswerStreak = 0, sinceAlertSec = 0, restDeclinedSec = 0))
     }

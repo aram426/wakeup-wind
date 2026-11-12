@@ -330,11 +330,9 @@ private fun RestPhase(ui: Ui, vm: MainViewModel?) {
         Spacer(Modifier.height(10.dp))
         Text("쉼터까지만 가요", color = Ink, fontSize = 40.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(6.dp))
-        Text("더는 깨우지 않아요. 가까운 곳을 경유지로 넣을게요.", color = Ink2, fontSize = 20.sp, lineHeight = 28.sp, fontWeight = FontWeight.Medium)
+        Text("더는 깨우지 않아요. 가장 가까운 쉼터를 경유지에 넣었어요.", color = Ink2, fontSize = 20.sp, lineHeight = 28.sp, fontWeight = FontWeight.Medium)
         Spacer(Modifier.height(14.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            ui.restOptions.forEachIndexed { i, (r, km) -> RestOption(i + 1, r, km, selected = i == 0) { vm?.restAccept() } }
-        }
+        ui.rest?.let { RestCard(it, ui.restKm, ui.restNavi) { vm?.restAccept() } }
         Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             Box(
@@ -345,28 +343,27 @@ private fun RestPhase(ui: Ui, vm: MainViewModel?) {
     }
 }
 
+/** 쉼터 1곳. 내비 값(navi = 남은 m, s)이 오면 주행거리·시간, 아직이면 직선거리에 "약". */
 @Composable
-private fun RestOption(rank: Int, stop: RestStop, km: Double, selected: Boolean, onClick: () -> Unit) {
-    val accent = if (selected) RedDeep else Ink
+private fun RestCard(stop: RestStop, km: Double, navi: Pair<Int, Int>?, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().height(80.dp).clip(Corner).background(Color.White)
-            .border(if (selected) 3.dp else 2.dp, if (selected) RedDeep else Dim, Corner)
+        Modifier.fillMaxWidth().height(80.dp).clip(Corner).background(Color.White).border(3.dp, RedDeep, Corner)
             .clickable(onClick = onClick).padding(start = 16.dp, end = 20.dp, top = 12.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Box(Modifier.size(40.dp).background(if (selected) RedDeep else Line, Corner), contentAlignment = Alignment.Center) {
-            Text("$rank", color = if (selected) Color.White else Muted, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-        }
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(stop.name, color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                if (selected) Box(Modifier.clip(Corner).background(RedSoftTag).padding(horizontal = 8.dp, vertical = 2.dp)) {
-                    Text("가장 가까움", color = RedDeep, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                Box(Modifier.clip(Corner).background(RedSoftTag).padding(horizontal = 8.dp, vertical = 2.dp)) {
+                    Text(if (navi != null) "내비 기준" else "직선 기준", color = RedDeep, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                 }
             }
             Text(stop.road, color = Muted, fontSize = 16.sp, fontWeight = FontWeight.Medium)
         }
-        Text("${"%.1f".format(km)}km", color = accent, fontSize = 32.sp, fontWeight = FontWeight.Bold)
+        Text(
+            if (navi != null) "${"%.1f".format(navi.first / 1000.0)}km · ${maxOf(1, navi.second / 60)}분" else "약 ${"%.1f".format(km)}km",
+            color = RedDeep, fontSize = 32.sp, fontWeight = FontWeight.Bold,
+        )
     }
 }
 
@@ -469,11 +466,11 @@ private fun Signal(label: String, onClick: () -> Unit, m: Modifier) {
 
 // ---- Android Studio Preview (에뮬레이터 없이 화면만 확인; Split/Design 탭) ----
 // vm = null 이라 버튼은 안 눌림. 상태만 바꿔가며 디자인 확인용.
-private val previewStops = listOf(RestStop("안성 졸음쉼터", 37.0, 127.2, "경부고속도로") to 3.2, RestStop("오산 휴게소", 37.1, 127.1, "경부고속도로") to 8.7)
+private val previewStop = RestStop("안성 졸음쉼터", 37.0, 127.2, "경부고속도로")
 private fun previewUi(phase: Phase, sec: Int = 0, q: String = "", level: Level = Level.L1, admin: Boolean = false) = Ui(
     s = State(phase = phase, phaseSec = sec, level = level, sinceStopSec = 95 * 60, sinceAlertSec = 27 * 60, question = q, ventCount = 3, longestDriveSec = 95 * 60, reactionMs = listOf(2100, 3400, 1200), restSuggested = 2, restAccepted = 1),
     carConnected = true, voiceEngine = "Pleos TTS/STT", listening = phase == Phase.QUESTION,
-    restOptions = if (phase == Phase.REST) previewStops else emptyList(),
+    rest = if (phase == Phase.REST) previewStop else null, restKm = 3.2, restNavi = if (phase == Phase.REST) 4300 to 5 * 60 else null,
     log = listOf("환기 3회째", "기어 D", "Vehicle SDK 초기화됨"),
     admin = admin,
 )

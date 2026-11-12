@@ -6,6 +6,10 @@ import ai.pleos.playground.location.fused.model.LocationData
 import ai.pleos.playground.navi.constants.WaypointIndex
 import ai.pleos.playground.navi.data.RequestWaypointInfo
 import ai.pleos.playground.navi.helper.NaviHelper
+import ai.pleos.playground.navi.helper.listener.NaviHelperEventListener
+import ai.pleos.playground.navi.data.WaypointInfo
+import ai.pleos.playground.navi.data.WaypointChangedInfo
+import ai.pleos.playground.navi.constants.NaviErrorCode
 import ai.pleos.playground.vehicle.Vehicle
 import ai.pleos.playground.vehicle.api.model.area.SeatArea
 import ai.pleos.playground.vehicle.api.model.area.WindowArea
@@ -25,8 +29,11 @@ interface Car {
     fun vent(strong: Boolean)
     fun ventOff()
     fun light(on: Boolean)
-    fun addWaypoint(lat: Double, lon: Double, name: String)
-    fun lastLocation(cb: (Double, Double) -> Unit)
+    /** 경유지 추가. 내비가 경로를 잡으면 onInfo(남은 거리 m, 남은 시간 s). */
+    fun addWaypoint(lat: Double, lon: Double, name: String, onInfo: (Int, Int) -> Unit)
+    fun removeWaypoint()
+    /** 마지막 위치 (lat, lon, 진행 방향 heading 또는 null). */
+    fun lastLocation(cb: (Double, Double, Float?) -> Unit)
     fun release()
 }
 
@@ -37,8 +44,9 @@ class NoCar : Car {
     override fun vent(strong: Boolean) = l("vent(strong=$strong): 외기·팬${if (strong) 8 else 6}·창문${if (strong) 3 else 2}·시트통풍")
     override fun ventOff() = l("ventOff: 원복")
     override fun light(on: Boolean) = l("light($on)")
-    override fun addWaypoint(lat: Double, lon: Double, name: String) = l("addWaypoint($name)")
-    override fun lastLocation(cb: (Double, Double) -> Unit) = cb(37.4598, 127.0439) // 서울만남의광장 근처
+    override fun addWaypoint(lat: Double, lon: Double, name: String, onInfo: (Int, Int) -> Unit) = l("addWaypoint($name)")
+    override fun removeWaypoint() = l("removeWaypoint")
+    override fun lastLocation(cb: (Double, Double, Float?) -> Unit) = cb(37.4598, 127.0439, null) // 서울만남의광장 근처
     override fun release() {}
 }
 
@@ -88,6 +96,17 @@ class PleosCar(
         override fun onFailed(e: Exception) = fail("chargePort")(e)
     }
 
+    private var waypointInfo: ((Int, Int) -> Unit)? = null
+    private val naviListener = object : NaviHelperEventListener {
+        override fun onWaypointChanged(info: WaypointChangedInfo) { l("경유지 변경: ${info.cmdType}"); runCatching { navi.getWaypointInfo() } }
+        override fun onWayPointInfo(list: List<WaypointInfo>) {
+            val w = list.firstOrNull() ?: return
+            l("경유지 ${w.name}: ${w.remainDistance}m ${w.remainTime}s")
+            waypointInfo?.invoke(w.remainDistance, w.remainTime)
+        }
+        override fun onError(code: NaviErrorCode) = l("내비 오류: $code")
+    }
+
     init {
         runCatching { vehicle.initialize(); connected = true; l("Vehicle SDK 초기화") }
             .onFailure { l("Vehicle SDK 초기화 실패: ${it.message}") }
@@ -111,7 +130,7 @@ class PleosCar(
                 }, fail("앰비언트 capability"))
             }.onFailure { l("capability 예외: ${it.message}") }
         }
-        runCatching { navi.initialize({ l("NaviHelper 연결") }, { l("NaviHelper 실패: ${it.message}") }) }
+        runCatching { navi.initialize({ l("NaviHelper 연결"); navi.addListener(naviListener) }, { l("NaviHelper 실패: ${it.message}") }) }
             .onFailure { l("NaviHelper 초기화 실패: ${it.message}") }
         runCatching { fused.initialize(); l("FusedLocation 연결") }
             .onFailure { l("FusedLocation 초기화 실패: ${it.message}") }
@@ -148,27 +167,34 @@ class PleosCar(
         vehicle.getLight().setAmbientLightBrightness(ambientArea, if (on) 100 else 10, { _, v -> l("앰비언트 $v") }, fail("앰비언트"))
     }
 
-    override fun addWaypoint(lat: Double, lon: Double, name: String) {
+    override fun addWaypoint(lat: Double, lon: Double, name: String, onInfo: (Int, Int) -> Unit) {
+        waypointInfo = onInfo
         runCatching {
             navi.addWaypoint(RequestWaypointInfo(lat, lon, name, WaypointIndex.FIRST, "", "", "", ""))
             l("경유지 추가: $name")
+            navi.getWaypointInfo()   // 변경 콜백이 안 와도 한 번은 조회
         }.onFailure { l("경유지 실패: ${it.message}") }
     }
 
-    override fun lastLocation(cb: (Double, Double) -> Unit) {
+    override fun removeWaypoint() {
+        waypointInfo = null
+        runCatching { navi.removeWaypoint(WaypointIndex.FIRST); l("경유지 제거") }.onFailure { l("경유지 제거 실패: ${it.message}") }
+    }
+
+    override fun lastLocation(cb: (Double, Double, Float?) -> Unit) {
         runCatching {
             fused.getLastKnownLocation(object : FusedLocationListener {
-                override fun onChanged(d: LocationData?) { if (d != null) cb(d.latitude, d.longitude) else cb(37.4598, 127.0439) }
-                override fun onError(e: Exception) { l("위치 실패: ${e.message}"); cb(37.4598, 127.0439) }
+                override fun onChanged(d: LocationData?) { if (d != null) cb(d.latitude, d.longitude, d.heading) else { l("위치 없음, 기본 좌표"); cb(37.4598, 127.0439, null) } }
+                override fun onError(e: Exception) { l("위치 실패: ${e.message}"); cb(37.4598, 127.0439, null) }
             })
-        }.onFailure { l("위치 호출 실패: ${it.message}"); cb(37.4598, 127.0439) }
+        }.onFailure { l("위치 호출 실패: ${it.message}"); cb(37.4598, 127.0439, null) }
     }
 
     override fun release() {
         runCatching {
             vehicle.getGear().unregisterGearSelection(gearListener)
             vehicle.getEvBattery().unregisterEvChargePortOpen(chargeListener)
-            vehicle.release(); navi.release(); fused.release()
+            vehicle.release(); navi.removeListener(naviListener); navi.release(); fused.release()
         }
     }
 }
