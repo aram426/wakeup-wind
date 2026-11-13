@@ -41,7 +41,8 @@ fun DrivingScene(speedKmh: Float, modifier: Modifier = Modifier) {
         var last = androidx.compose.runtime.withFrameNanos { it }
         while (true) {
             val now = androidx.compose.runtime.withFrameNanos { it }
-            dist += (now - last) / 1_000_000_000f * speed
+            // 체감 속도는 실제의 2배. 트럭이 실제로 내는 80km/h 안팎에서 속도감이 나게
+            dist += (now - last) / 1_000_000_000f * speed * 2f
             last = now
         }
     }
