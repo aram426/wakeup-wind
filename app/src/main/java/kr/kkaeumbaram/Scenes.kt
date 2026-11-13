@@ -214,3 +214,46 @@ fun RestScene(modifier: Modifier = Modifier) {
         }
     }
 }
+
+/**
+ * 낮잠 장면(Figma fx/sleep mask). 안대는 숨 쉬듯 한 칸 오르내리고, Z가 큰 것부터 차례로 떠올랐다 사라지고,
+ * 반짝이가 엇갈려 깜빡인다. 어드민 뷰로 카드가 좁아지면(606dp) 0.9배로 줄어든다.
+ */
+@Composable
+fun SleepScene(modifier: Modifier = Modifier) {
+    val tr = rememberInfiniteTransition(label = "sleep")
+    val t by tr.animateFloat(0f, 1f, infiniteRepeatable(tween(3000, easing = LinearEasing), RepeatMode.Restart), label = "t")
+    val dp = LocalDensity.current.density
+    Canvas(modifier) {
+        val k = ((size.width / dp - 606f) / (922f - 606f)).coerceIn(0f, 1f)
+        val s = 0.9f + 0.1f * k
+        val u = SleepArt.UNIT * s * dp
+        val ox = (size.width - 606 * s * dp) / 2f
+        val oy = (182.6f + (156f - 182.6f) * k) * dp   // Figma: 사용자 y 205px, 어드민 y 240px
+        val pal = SleepArt.pal
+        val twoPi = (2 * PI).toFloat()
+
+        drawPx(SleepArt.disc, pal, u, ox, oy, alpha = 0.45f * (0.85f + 0.15f * sin(twoPi * t)))
+        drawPx(SleepArt.moon, pal, u, ox, oy)
+        val breathe = if (sin(twoPi * t) > 0f) -u else 0f
+        drawPx(SleepArt.strap, pal, u, ox, oy, dy = breathe)
+        drawPx(SleepArt.mask, pal, u, ox, oy, dy = breathe)
+        SleepArt.zzz.forEachIndexed { j, z ->
+            val p = mod(t - j * 0.25f, 1f)
+            drawPx(z, pal, u, ox, oy, alpha = sin(PI.toFloat() * p), dy = -floor(p * 3f) * u)
+        }
+        for (j in 0..3) {
+            val q = mod(t + j * 0.25f, 1f)
+            drawPx(SleepArt.sparkles.subList(j * 3, j * 3 + 3), pal, u, ox, oy, alpha = 0.3f + 0.7f * (1f - abs(2f * q - 1f)))
+        }
+    }
+}
+
+/** 스트레칭 한 자세 그림. 72x75칸을 주어진 폭에 맞춰 그린다. */
+@Composable
+fun StretchFigure(pose: Int, modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        val u = size.width / StretchArt.COLS
+        drawPx(StretchArt.poses[pose], StretchArt.pal, u, 0f, (size.height - StretchArt.ROWS * u) / 2f)
+    }
+}
