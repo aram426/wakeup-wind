@@ -2,11 +2,14 @@ package kr.kkaeumbaram
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.Canvas
@@ -35,6 +38,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -54,6 +58,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.roundToInt
 
 // Figma "라이트 v2" 팔레트
 private val Bg = Color(0xFFC9CDCD)
@@ -64,15 +69,16 @@ private val Muted = Color(0xFF5D6161)
 private val Line = Color(0xFFDADDDD)
 private val Dim = Color(0xFFA7ADAD)
 private val Green = Color(0xFF1E9E4F)
-private val GreenSoft = Color(0xFFDFF2C9)
 private val Yellow = Color(0xFFF5B301)
-private val YellowSoft = Color(0xFFFDF0CC)
 private val Red = Color(0xFFE5383B)
-private val RedSoft = Color(0xFFFAD7D8)
 private val Wind = Color(0xFF1D4ED8)
 
+private val GreenDeep = Color(0xFF15803D)
+private val IdleGray = Color(0xFF8B93A3)
+
 private fun Level.color() = when (this) { Level.L1 -> Green; Level.L2 -> Yellow; Level.L3 -> Red }
-private fun Level.soft() = when (this) { Level.L1 -> GreenSoft; Level.L2 -> YellowSoft; Level.L3 -> RedSoft }
+/** 단계 배지는 L1만 한 톤 진한 초록 (Figma v2 리뷰 반영). */
+private fun Level.badge() = when (this) { Level.L1 -> GreenDeep; Level.L2 -> Yellow; Level.L3 -> Red }
 
 // 모든 패널·컴포넌트 모서리 반경 3px (화면 2560 기준 절대값)
 private val Corner = RoundedCornerShape(3f)
@@ -128,79 +134,77 @@ private fun mmss(sec: Int) = "%d:%02d".format(sec / 60, sec % 60)
 @Composable
 private fun StatusPane(ui: Ui, vm: MainViewModel?, m: Modifier) {
     val s = ui.s
-    // 환기·질문·쉼터 화면에서는 오늘 리포트 줄이 촘촘해진다 (Figma v3)
-    val vent = s.phase == Phase.VENT || s.phase == Phase.QUESTION || s.phase == Phase.REST
+    // 어드민일 때만 제목 아래에 차량·음성 상태가 끼어들고, 그만큼 주행 현황까지 간격이 줄어든다
+    val gap by animateDpAsState(if (ui.admin) 26.dp else 36.dp, tween(SlideMs), label = "statusGap")
     Box(m.fillMaxHeight().pane()) {
         Column(Modifier.padding(22.dp)) {
-            Column(Modifier.height(120.dp)) {
-                Text("깨움바람", color = Ink, fontSize = 26.sp, fontWeight = FontWeight.Bold)
-                AnimatedVisibility(ui.admin, enter = fadeIn(tween(SlideMs)), exit = fadeOut(tween(200))) {
-                    Column {
-                        Spacer(Modifier.height(10.dp))
-                        Row(
-                            Modifier.clip(Corner).background(s.level.soft()).padding(start = 10.dp, end = 12.dp, top = 5.dp, bottom = 5.dp),
-                            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Box(Modifier.size(8.dp).background(if (ui.carConnected) s.level.color() else Dim, Corner))
-                            Text(if (ui.carConnected) "Vehicle SDK 초기화됨" else "차량 미연결 (로그만)", color = Color.Black, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        Text("음성: ${ui.voiceEngine}", color = Muted, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Text("깨움바람", color = Ink, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+            AnimatedVisibility(ui.admin, enter = fadeIn(tween(SlideMs)) + expandVertically(tween(SlideMs)), exit = fadeOut(tween(200)) + shrinkVertically(tween(SlideMs))) {
+                Column {
+                    Spacer(Modifier.height(10.dp))
+                    Row(
+                        Modifier.clip(Corner).background(Line).padding(start = 10.dp, end = 12.dp, top = 5.dp, bottom = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Box(Modifier.size(8.dp).background(if (ui.carConnected) Green else Dim, Corner))
+                        Text(if (ui.carConnected) "Vehicle SDK 초기화됨" else "차량 미연결 (로그만)", color = Color.Black, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                     }
+                    Spacer(Modifier.height(8.dp))
+                    Text("음성: ${ui.voiceEngine}", color = Muted, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                 }
             }
+            Spacer(Modifier.height(gap))
             SectionLabel("주행 현황")
             Spacer(Modifier.height(2.dp))
             StatRow("연속 주행", mmss(s.sinceStopSec))
             StatRow("단계", "", badge = s.level)
             Spacer(Modifier.height(26.dp))
-            SectionLabel("오늘 리포트", alpha = if (vent) 0.8f else 1f)
+            SectionLabel("오늘 리포트")
             Spacer(Modifier.height(2.dp))
-            StatRow("환기", "${s.ventCount}회", compact = vent)
-            StatRow("최장 연속 주행", mmss(s.longestDriveSec), compact = vent)
-            StatRow("평균 반응시간", if (s.reactionMs.isEmpty()) "-" else "${s.avgReactionMs / 1000.0}초", compact = vent)
-            StatRow("휴식 이행", "${s.restAccepted} / ${s.restSuggested}", compact = vent)
+            StatRow("환기", "${s.ventCount}회")
+            StatRow("최장 연속 주행", mmss(s.longestDriveSec))
+            StatRow("평균 반응시간", if (s.reactionMs.isEmpty()) "-" else "${s.avgReactionMs / 1000.0}초")
+            StatRow("휴식 이행", "${s.restAccepted} / ${s.restSuggested}")
         }
-        if (s.phase == Phase.DRIVING) VentButton(s.level, Modifier.align(Alignment.BottomCenter).padding(bottom = 55.dp)) { vm?.ventNow() }
+        if (s.phase == Phase.DRIVING) VentButton(Modifier.align(Alignment.BottomCenter).padding(22.dp).fillMaxWidth()) { vm?.ventNow() }
     }
 }
 
 @Composable
-private fun SectionLabel(text: String, alpha: Float = 1f) =
-    Text(text, color = Muted.copy(alpha = alpha), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+private fun SectionLabel(text: String) = Text(text, color = Muted, fontSize = 16.sp, fontWeight = FontWeight.Bold)
 
 @Composable
-private fun StatRow(label: String, value: String, compact: Boolean = false, badge: Level? = null) {
-    val line = if (compact) Modifier else Modifier.drawBehind { drawLine(Line, Offset(0f, size.height - 0.5f), Offset(size.width, size.height - 0.5f), 1f) }
-    Row(Modifier.fillMaxWidth().height(if (compact) 34.dp else 48.dp).then(line), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        Text(label, color = Muted, fontSize = if (compact) 14.sp else 15.sp, fontWeight = FontWeight.Medium)
+private fun StatRow(label: String, value: String, badge: Level? = null) {
+    val line = Modifier.drawBehind { drawLine(Line, Offset(0f, size.height - 0.5f), Offset(size.width, size.height - 0.5f), 1f) }
+    Row(Modifier.fillMaxWidth().height(48.dp).then(line), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Text(label, color = Muted, fontSize = 18.sp, fontWeight = FontWeight.Medium)
         if (badge != null) {
-            Box(Modifier.clip(Corner).background(badge.color()).padding(horizontal = 12.dp, vertical = 3.dp)) {
+            Box(Modifier.clip(Corner).background(badge.badge()).padding(horizontal = 12.dp, vertical = 3.dp)) {
                 Text(badge.name, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
-        } else if (compact) Text(value, color = Ink2, fontSize = 15.sp, fontWeight = FontWeight.Medium)
-        else Text(value, color = Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        } else Text(value, color = Ink, fontSize = 22.sp, fontWeight = FontWeight.Bold)
     }
 }
 
-/** 지금 환기: 85x62 정사각 버튼, 단계 색. 바람 아이콘은 Figma 벡터(선 2.67, 둥근 끝) 그대로. */
+/** 지금 환기: 패널 폭 테두리 버튼(높이 56). 바람 아이콘은 Figma 벡터(선 2.67, 둥근 끝) 그대로, 32 박스 안. */
 @Composable
-private fun VentButton(level: Level, m: Modifier, onClick: () -> Unit) {
+private fun VentButton(m: Modifier, onClick: () -> Unit) {
     val d = LocalDensity.current.density
-    Canvas(
-        m.size(85.dp, 62.dp)
-            .shadow(8.dp, Corner, ambientColor = Wind.copy(alpha = 0.35f), spotColor = Wind.copy(alpha = 0.35f))
-            .background(level.color())
-            .clickable(onClick = onClick),
+    Row(
+        m.height(56.dp).clip(Corner).border(2.dp, Muted, Corner).clickable(onClick = onClick),
+        horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically,
     ) {
-        withTransform({ scale(d, d, Offset.Zero); translate(27f + 4f, 15f + 2.667f) }) {
-            val p = Path().apply {
-                moveTo(0f, 8f); lineTo(14.667f, 8f); arcTo(Rect(10.667f, 0f, 18.667f, 8f), 90f, -270f, false)
-                moveTo(0f, 13.333f); lineTo(21.333f, 13.333f); arcTo(Rect(17.333f, 13.333f, 25.333f, 21.333f), -90f, 270f, false)
-                moveTo(0f, 18.667f); lineTo(10.667f, 18.667f); arcTo(Rect(6.667f, 18.667f, 14.667f, 26.667f), -90f, 270f, false)
+        Canvas(Modifier.size(32.dp)) {
+            withTransform({ scale(d, d, Offset.Zero); translate(3.8f, 2.7f) }) {
+                val p = Path().apply {
+                    moveTo(0f, 8f); lineTo(14.667f, 8f); arcTo(Rect(10.667f, 0f, 18.667f, 8f), 90f, -270f, false)
+                    moveTo(0f, 13.333f); lineTo(21.333f, 13.333f); arcTo(Rect(17.333f, 13.333f, 25.333f, 21.333f), -90f, 270f, false)
+                    moveTo(0f, 18.667f); lineTo(10.667f, 18.667f); arcTo(Rect(6.667f, 18.667f, 14.667f, 26.667f), -90f, 270f, false)
+                }
+                drawPath(p, Ink, style = Stroke(2.667f, cap = StrokeCap.Round, join = StrokeJoin.Round))
             }
-            drawPath(p, Color.White, style = Stroke(2.667f, cap = StrokeCap.Round, join = StrokeJoin.Round))
         }
+        Text("지금 환기", color = Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -239,14 +243,13 @@ private fun MainCard(ui: Ui, vm: MainViewModel?, m: Modifier) {
             Phase.IDLE -> DrivingScene(0f, Modifier.fillMaxSize())
             Phase.QUESTION -> ListeningScene(Modifier.fillMaxSize())
             Phase.REST -> RestScene(Modifier.fillMaxSize())
+            Phase.NAP -> SleepScene(Modifier.fillMaxSize())
             else -> {}
         }
         when (s.phase) {
             Phase.DRIVING -> Column(Modifier.fillMaxSize().padding(28.dp)) {
-                Box(Modifier.width(71.dp).height(6.dp).background(lv.color(), Corner))
+                Header(lv.color(), "주행 중")
                 Spacer(Modifier.height(10.dp))
-                Text("주행 중", color = Ink, fontSize = 34.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(18.dp))
                 Text("다음 환기까지", color = Ink2, fontSize = 22.sp, fontWeight = FontWeight.Medium)
                 Text(mmss(maxOf(0, s.intervalSec - s.sinceAlertSec)), color = Ink, fontSize = 176.sp, lineHeight = 176.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(14.dp))
@@ -256,18 +259,23 @@ private fun MainCard(ui: Ui, vm: MainViewModel?, m: Modifier) {
                 }
             }
             Phase.VENT -> Column(Modifier.fillMaxSize().padding(28.dp)) {
-                Box(Modifier.width(71.dp).height(6.dp).background(lv.color(), Corner))
-                Spacer(Modifier.height(10.dp))
-                Text("환기 중", color = Ink, fontSize = 34.sp, fontWeight = FontWeight.Bold)
+                // Engine.vent()와 같은 기준: L2 이상이거나 "세게 깨워줘"면 세게 환기
+                val strong = lv != Level.L1 || s.strongMode
+                Header(
+                    lv.color(), if (strong) "세게 환기 중" else "환기 중",
+                    if (strong) "송풍 최대 · 창문 더 열기 · 시트 통풍" else "외기 전환 · 창문 조금 열기 · 시트 통풍",
+                )
+                Spacer(Modifier.weight(1f))
+                val left = (VentSec - s.phaseSec).coerceAtLeast(0)
+                TimerBar("환기 끝까지", "${left}초", steps(left, VentSec), lv.color())
             }
             Phase.IDLE -> Column(Modifier.fillMaxSize().padding(28.dp)) {
-                Box(Modifier.width(71.dp).height(6.dp).background(Dim, Corner))
-                Spacer(Modifier.height(10.dp))
-                Text("대기 중", color = Ink, fontSize = 34.sp, fontWeight = FontWeight.Bold)
+                Header(IdleGray, "대기 중", "기어를 D에 넣으면 주행 시간을 재기 시작해요.")
             }
             Phase.QUESTION -> QuestionPhase(ui, vm)
             Phase.REST -> RestPhase(ui, vm)
-            else -> OtherPhase(ui, vm)
+            Phase.STRETCH -> StretchPhase(ui, vm)
+            Phase.NAP -> NapPhase(ui, vm)
         }
         AnimatedVisibility(!ui.admin, Modifier.align(Alignment.TopEnd).padding(top = 7.dp, end = 10.dp), enter = fadeIn(tween(SlideMs)), exit = fadeOut(tween(150))) {
             AdminButton({ vm?.toggleAdmin() })
@@ -275,20 +283,61 @@ private fun MainCard(ui: Ui, vm: MainViewModel?, m: Modifier) {
     }
 }
 
-private val GreenDeep = Color(0xFF15803D)
 private val RedDeep = Color(0xFFB91C1C)
 private val RedSoftTag = Color(0xFFFEE2E2)
 private val WindSoft = Color(0xFFDBEAFE)
 
-/** 질문 화면 (Figma v3): 마이크 장면 위에 듣는 중 칩, 아래에 남은 시간 막대와 답 버튼. */
+// Engine의 단계 길이(초)와 같게 맞춘다
+private const val VentSec = 60
+private const val StretchSec = 90
+private const val NapSec = 20 * 60
+
+/** 남은 시간을 15칸 막대의 채운 칸 수로. */
+private fun steps(left: Int, total: Int) = (left * 15f / total).roundToInt().coerceIn(0, 15)
+
+/** 카드 머리: 단계 색 막대, 제목(40), 있으면 한 줄 설명(20). */
+@Composable
+private fun Header(accent: Color, title: String, body: String? = null) {
+    Box(Modifier.width(71.dp).height(6.dp).background(accent, Corner))
+    Spacer(Modifier.height(10.dp))
+    Text(title, color = Ink, fontSize = 40.sp, lineHeight = 48.sp, fontWeight = FontWeight.Bold)
+    if (body != null) {
+        Spacer(Modifier.height(6.dp))
+        Text(body, color = Ink2, fontSize = 20.sp, lineHeight = 28.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+/** 카드 아래 남은 시간: 왼쪽 라벨, 오른쪽 큰 숫자, 그 아래 15칸 막대. */
+@Composable
+private fun TimerBar(label: String, value: String, filled: Int, color: Color) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
+        Text(label, color = Muted, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 7.dp))
+        Text(value, color = Ink, fontSize = 36.sp, fontWeight = FontWeight.Bold)
+    }
+    Spacer(Modifier.height(8.dp))
+    Row(Modifier.fillMaxWidth().height(22.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        repeat(15) { Box(Modifier.weight(1f).fillMaxHeight().background(if (it < filled) color else Line, Corner)) }
+    }
+}
+
+/** 큰 초록 버튼 (높이 80, 그림자). 사용자 뷰에서도 폭은 어드민 카드 안쪽 폭(550)에 맞춘다. */
+@Composable
+private fun PrimaryButton(label: String, m: Modifier, onClick: () -> Unit) {
+    Box(
+        m.height(80.dp)
+            .shadow(6.dp, Corner, ambientColor = Color.Black.copy(alpha = 0.18f), spotColor = Color.Black.copy(alpha = 0.18f))
+            .background(GreenDeep, Corner).clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) { Text(label, color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Bold) }
+}
+
+/** 질문 화면: 마이크 장면 위에 듣는 중 칩, 아래에 남은 시간 막대와 답 버튼. "응답 없음"은 어드민에서만. */
 @Composable
 private fun QuestionPhase(ui: Ui, vm: MainViewModel?) {
     val s = ui.s
     val left = (15 - s.phaseSec).coerceIn(0, 15)
     Column(Modifier.fillMaxSize().padding(28.dp)) {
-        Box(Modifier.width(71.dp).height(6.dp).background(s.level.color(), Corner))
-        Spacer(Modifier.height(10.dp))
-        Text(s.question, color = Ink, fontSize = 40.sp, lineHeight = 48.sp, fontWeight = FontWeight.Bold)
+        Header(s.level.color(), s.question)
         Spacer(Modifier.height(10.dp))
         Row(
             Modifier.clip(Corner).background(WindSoft).padding(start = 12.dp, end = 14.dp, top = 5.dp, bottom = 5.dp),
@@ -298,23 +347,11 @@ private fun QuestionPhase(ui: Ui, vm: MainViewModel?) {
             Text(if (ui.listening) "듣고 있어요…" else "대답해 주세요", color = Wind, fontSize = 20.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.weight(1f))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
-            Text("대답할 수 있는 시간", color = Muted, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 7.dp))
-            Text("${left}초", color = Ink, fontSize = 36.sp, fontWeight = FontWeight.Bold)
-        }
-        Spacer(Modifier.height(8.dp))
-        Row(Modifier.fillMaxWidth().height(22.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            repeat(15) { Box(Modifier.weight(1f).fillMaxHeight().background(if (it < left) s.level.color() else Line, Corner)) }
-        }
+        TimerBar("대답할 수 있는 시간", "${left}초", left, s.level.color())
         Spacer(Modifier.height(26.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Bottom) {
-            Box(
-                Modifier.weight(1f).height(80.dp)
-                    .shadow(6.dp, Corner, ambientColor = Color.Black.copy(alpha = 0.18f), spotColor = Color.Black.copy(alpha = 0.18f))
-                    .background(GreenDeep, Corner).clickable { vm?.answered() },
-                contentAlignment = Alignment.Center,
-            ) { Text("괜찮아요", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Bold) }
-            Box(
+        Row(Modifier.width(550.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Bottom) {
+            PrimaryButton("괜찮아요", Modifier.weight(1f)) { vm?.answered() }
+            if (ui.admin) Box(
                 Modifier.width(180.dp).height(56.dp).clip(Corner).border(2.dp, Muted, Corner).clickable { vm?.noAnswer() },
                 contentAlignment = Alignment.Center,
             ) { Text("응답 없음(시연)", color = Muted, fontSize = 16.sp, fontWeight = FontWeight.Medium) }
@@ -326,11 +363,7 @@ private fun QuestionPhase(ui: Ui, vm: MainViewModel?) {
 @Composable
 private fun RestPhase(ui: Ui, vm: MainViewModel?) {
     Column(Modifier.fillMaxSize().padding(28.dp)) {
-        Box(Modifier.width(71.dp).height(6.dp).background(RedDeep, Corner))
-        Spacer(Modifier.height(10.dp))
-        Text("쉼터까지만 가요", color = Ink, fontSize = 40.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(6.dp))
-        Text("더는 깨우지 않아요. 진행 방향에서 가장 가까운 쉼터예요.", color = Ink2, fontSize = 20.sp, lineHeight = 28.sp, fontWeight = FontWeight.Medium)
+        Header(RedDeep, "쉼터까지만 가요", "더는 깨우지 않아요. 진행 방향에서 가장 가까운 쉼터예요.")
         Spacer(Modifier.height(14.dp))
         ui.rest?.let { RestCard(it, ui.restKm, ui.restNavi) { vm?.restAccept() } }
         Spacer(Modifier.height(12.dp))
@@ -371,35 +404,85 @@ private fun RestCard(stop: RestStop, km: Double, navi: Pair<Int, Int>?, onClick:
     }
 }
 
-/** Figma에 아직 없는 단계(스트레칭·낮잠). 같은 팔레트로 글과 버튼만. */
+/** 스트레칭 4자세: 이름, 초, 한 줄 설명. 순서대로 진행한다. */
+private val StretchSteps = listOf(
+    Triple("목 좌우", 10, "고개를 좌우로 천천히"),
+    Triple("어깨 돌리기", 20, "양 어깨를 크게 뒤로"),
+    Triple("허리 비틀기", 20, "상체를 좌우로 비틀기"),
+    Triple("손목·발목", 20, "손목과 발목 돌리기"),
+)
+
+/** 정차 스트레칭: 2x2 자세 카드(진행 중인 자세만 초록 테두리), 남은 시간, "다 했어요". */
 @Composable
-private fun OtherPhase(ui: Ui, vm: MainViewModel?) {
+private fun StretchPhase(ui: Ui, vm: MainViewModel?) {
     val s = ui.s
-    val (title, body, accent) = when (s.phase) {
-        Phase.STRETCH -> Triple("정차 스트레칭 · ${mmss(90 - s.phaseSec)}", "목 좌우 10초 → 어깨 돌리기 20초 → 허리 비틀기 20초 → 손목·발목 20초", Green)
-        Phase.NAP -> Triple("충전 중 낮잠 · ${mmss(20 * 60 - s.phaseSec)}", "조명 낮춤, 공조 유지. 끝나면 바람으로 깨워요.", Green)
-        else -> Triple("", "", Dim)
-    }
-    Column(Modifier.fillMaxSize().padding(28.dp), verticalArrangement = Arrangement.SpaceBetween) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(Modifier.width(71.dp).height(6.dp).background(accent, Corner))
-            Text(title, color = Ink, fontSize = if (title.length > 12) 28.sp else 34.sp, fontWeight = FontWeight.Bold, lineHeight = if (title.length > 12) 36.sp else 42.sp)
-            Text(body, color = Muted, fontSize = 20.sp, lineHeight = 28.sp)
+    val left = (StretchSec - s.phaseSec).coerceAtLeast(0)
+    // 자세별 시간을 차례로 더해 지금 몇 번째 자세인지. 다 지나면 마지막 자세에 머문다
+    var end = 0
+    val active = StretchSteps.indexOfFirst { end += it.second; s.phaseSec < end }.let { if (it < 0) StretchSteps.lastIndex else it }
+    Column(Modifier.fillMaxSize().padding(28.dp)) {
+        Header(Green, "정차 스트레칭")
+        Spacer(Modifier.height(14.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            for (row in 0..1) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                for (col in 0..1) { val i = row * 2 + col; StretchCard(i, i == active, Modifier.weight(1f)) }
+            }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            when (s.phase) {
-                Phase.STRETCH -> Big("다 했어요", Green) { vm?.stretchDone() }
-                Phase.NAP -> Big("지금 일어날래요", Green) { vm?.wake() }
-                else -> {}
+        Spacer(Modifier.weight(1f))
+        TimerBar("남은 시간", "${left}초", steps(left, StretchSec), Green)
+        Spacer(Modifier.height(26.dp))
+        PrimaryButton("다 했어요", Modifier.width(550.dp)) { vm?.stretchDone() }
+    }
+}
+
+/** 자세 카드. 넓으면(사용자 뷰) 그림 왼쪽·정보 오른쪽, 좁으면(어드민 뷰) 위에서 아래로 가운데 정렬. */
+@Composable
+private fun StretchCard(i: Int, active: Boolean, m: Modifier) {
+    val (title, sec, desc) = StretchSteps[i]
+    val header = @Composable {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+            Box(Modifier.size(27.dp).background(if (active) GreenDeep else Line, Corner), contentAlignment = Alignment.Center) {
+                Text("${i + 1}", color = if (active) Color.White else Muted, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+            }
+            Text(title, color = Ink, fontSize = 21.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+    val secColor = if (active) GreenDeep else Ink
+    BoxWithConstraints(m.height(262.dp).clip(Corner).background(Color.White).border(if (active) 3.dp else 2.dp, if (active) Green else Dim, Corner)) {
+        if (maxWidth > 360.dp) {
+            Row(Modifier.fillMaxSize().padding(start = 12.dp, top = 17.dp, end = 15.dp, bottom = 17.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                StretchFigure(i, Modifier.size(219.dp, 228.dp))
+                Column(Modifier.fillMaxHeight(), verticalArrangement = Arrangement.SpaceBetween) {
+                    header()
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("${sec}초", color = secColor, fontSize = 36.sp, fontWeight = FontWeight.Bold)
+                        Text(desc, color = Muted, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                    }
+                }
+            }
+        } else {
+            Column(Modifier.fillMaxSize().padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                header()
+                StretchFigure(i, Modifier.size(151.dp, 157.dp))
+                Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    Text("${sec}초", color = secColor, fontSize = 27.sp, fontWeight = FontWeight.Bold)
+                    Text(desc, color = Muted, fontSize = 15.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(bottom = 4.dp))
+                }
             }
         }
     }
 }
 
+/** 충전 중 낮잠: 수면 안대 장면, 일어날 때까지 남은 시간, "지금 일어날래요". */
 @Composable
-private fun Big(label: String, color: Color, onClick: () -> Unit) {
-    Box(Modifier.clip(Corner).background(color).clickable(onClick = onClick).padding(horizontal = 24.dp, vertical = 16.dp)) {
-        Text(label, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Medium)
+private fun NapPhase(ui: Ui, vm: MainViewModel?) {
+    val left = (NapSec - ui.s.phaseSec).coerceAtLeast(0)
+    Column(Modifier.fillMaxSize().padding(28.dp)) {
+        Header(Green, "충전 중 낮잠", "20분 뒤에 바람으로 깨워 드릴게요.")
+        Spacer(Modifier.weight(1f))
+        TimerBar("일어날 때까지", mmss(left), steps(left, NapSec), Green)
+        Spacer(Modifier.height(26.dp))
+        PrimaryButton("지금 일어날래요", Modifier.width(550.dp)) { vm?.wake() }
     }
 }
 
@@ -494,7 +577,9 @@ private fun previewUi(phase: Phase, sec: Int = 0, q: String = "", level: Level =
 @Preview(name = "질문", widthDp = 1682, heightDp = 1210) @Composable private fun PvQuestion() = AppScreen(previewUi(Phase.QUESTION, 4, "오늘 몇 개 남았어요?"), null)
 @Preview(name = "질문 어드민", widthDp = 1682, heightDp = 1210) @Composable private fun PvQuestionAdmin() = AppScreen(previewUi(Phase.QUESTION, 4, "오늘 몇 개 남았어요?", admin = true), null)
 @Preview(name = "질문 L2", widthDp = 1682, heightDp = 1210) @Composable private fun PvQuestionL2() = AppScreen(previewUi(Phase.QUESTION, 4, "오늘 몇 개 남았어요?", level = Level.L2), null)
-@Preview(name = "스트레칭", widthDp = 1682, heightDp = 1210) @Composable private fun PvStretch() = AppScreen(previewUi(Phase.STRETCH, 20), null)
+@Preview(name = "스트레칭", widthDp = 1682, heightDp = 1210) @Composable private fun PvStretch() = AppScreen(previewUi(Phase.STRETCH, 18), null)
+@Preview(name = "스트레칭 어드민", widthDp = 1682, heightDp = 1210) @Composable private fun PvStretchAdmin() = AppScreen(previewUi(Phase.STRETCH, 18, admin = true), null)
 @Preview(name = "휴식 제안", widthDp = 1682, heightDp = 1210) @Composable private fun PvRest() = AppScreen(previewUi(Phase.REST, level = Level.L3), null)
 @Preview(name = "휴식 제안 어드민", widthDp = 1682, heightDp = 1210) @Composable private fun PvRestAdmin() = AppScreen(previewUi(Phase.REST, level = Level.L3, admin = true), null)
-@Preview(name = "쪽잠", widthDp = 1682, heightDp = 1210) @Composable private fun PvNap() = AppScreen(previewUi(Phase.NAP, 8 * 60), null)
+@Preview(name = "쪽잠", widthDp = 1682, heightDp = 1210) @Composable private fun PvNap() = AppScreen(previewUi(Phase.NAP, 78), null)
+@Preview(name = "쪽잠 어드민", widthDp = 1682, heightDp = 1210) @Composable private fun PvNapAdmin() = AppScreen(previewUi(Phase.NAP, 78, admin = true), null)
