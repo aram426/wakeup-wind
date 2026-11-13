@@ -416,9 +416,11 @@ private fun DemoPane(ui: Ui, vm: MainViewModel?, m: Modifier) {
             Spacer(Modifier.height(22.dp))
             SectionLabel("차량 신호 흉내")
             Spacer(Modifier.height(2.dp))
-            Text("에뮬레이터 주입 대신", color = Muted, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+            Text("에뮬레이터 주입 대신 · 속도 ${ui.speedKmh.toInt()}km/h", color = Muted, fontSize = 13.sp, fontWeight = FontWeight.Medium)
             Spacer(Modifier.height(10.dp))
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                // 차량 속도 신호가 없을 때(콘솔 미주입) 트럭 모션 속도를 손으로 바꾼다
+                SignalRow("속도 −20" to { vm?.setSpeed(ui.speedKmh - 20) }, "속도 +20" to { vm?.setSpeed(ui.speedKmh + 20) })
                 SignalRow("+10분" to { vm?.fastForward(10) }, "+30분" to { vm?.fastForward(30) })
                 SignalRow("기어 P" to { vm?.gearPark() }, "기어 D" to { vm?.gearDrive() })
                 SignalRow("충전 시작" to { vm?.charge() }, "Gleo: 쉼터 가자" to { vm?.gleo("GO_REST") })
