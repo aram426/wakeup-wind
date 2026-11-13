@@ -8,6 +8,7 @@ plugins {
 android {
     namespace = "kr.kkaeumbaram"
     compileSdk = 34
+    useLibrary("android.car")
 
     defaultConfig {
         applicationId = "kr.kkaeumbaram"

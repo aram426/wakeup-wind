@@ -15,7 +15,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {}.launch(arrayOf(Manifest.permission.RECORD_AUDIO, "pleos.car.permission.FUSED_LOCATION"))
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {}.launch(arrayOf(Manifest.permission.RECORD_AUDIO, "pleos.car.permission.FUSED_LOCATION", "android.car.permission.CAR_SPEED"))
         handleGleo(intent)
         setContent {
             val ui = vm.ui.collectAsStateWithLifecycle().value

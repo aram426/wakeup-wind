@@ -69,6 +69,7 @@ Pleos SDK는 `settings.gradle.kts`의 Pleos Maven에서 받는다.
 | Vehicle·NaviHelper·FusedLocation 초기화 | 됨 |
 | 기어 P/D 구독, 충전 포트 구독 | 됨. Drive → 주행 시작, Park → 스트레칭, 포트 열림 → 낮잠 |
 | 외기 전환(recirc off), 팬 6, 시트 통풍 3, 창문 20%, 앰비언트 100 | 됨 (콘솔 state로 확인) |
+| 주행 속도 | Pleos SDK에는 읽는 API가 없어 Android Automotive 표준 `CarPropertyManager`(`PERF_VEHICLE_SPEED`, 권한 `android.car.permission.CAR_SPEED`)로 구독. 됨(11/13). 콘솔에서 40 → 120 → 0을 주입하면 그대로 수신되고 주행 화면의 트럭 속도에 반영된다. 가속 페달 값만 넣어서는 속도가 오르지 않는다 |
 | 팬 속도 | HVAC 전원이 꺼져 있으면 error code 2. 전원 ON 후 됨. area는 capability로 받아야 함(ROW_1_LEFT 단독은 거부) |
 | 실내등 | 에뮬레이터에서 50001 오류가 잦아 호출 제거. 조명 효과는 앰비언트(100/10)만 사용 |
 | Pleos TTS ON_DEVICE | `ON_DEVICE_ENGINE_ERROR`. 에뮬레이터엔 온디바이스 엔진이 없음 → HYBRID/SERVER + My Project 앱 등록(registerApp) 필요. Android 기본 TTS도 없음 |
@@ -85,7 +86,7 @@ Pleos SDK는 `settings.gradle.kts`의 Pleos Maven에서 받는다.
 
 1. 에뮬레이터는 반드시 **Terminal 앱에서 직접** 띄운다. IDE 내장 터미널이나 백그라운드에서 띄우면 macOS 마이크 권한 팝업이 안 떠서 무음만 들어간다. 시스템 설정 > 개인정보 보호 및 보안 > 마이크에 "터미널"이 켜져 있어야 한다.
 2. 호스트 마이크 전달은 기본 꺼짐. 부팅 후 `adb emu avd hostmicon` 한 번 실행(또는 에뮬레이터 ⋯ > Microphone > "Virtual microphone uses host audio input").
-3. 앱에 `RECORD_AUDIO` 권한이 있어야 한다(쉼터 거리 계산용 위치는 `pleos.car.permission.FUSED_LOCATION`, 런타임 권한이라 첫 실행 팝업 또는 `pm grant`). 에뮬레이터 앱은 사용자 10으로 돌기 때문에 adb로 줄 때는 `pm grant --user 10 …`. 첫 실행 팝업에서 허용하거나 `adb shell pm grant --user 10 kr.kkaeumbaram android.permission.RECORD_AUDIO`.
+3. 앱에 `RECORD_AUDIO` 권한이 있어야 한다(쉼터 거리 계산용 위치는 `pleos.car.permission.FUSED_LOCATION`, 런타임 권한이라 첫 실행 팝업 또는 `pm grant`. 주행 속도용 `android.car.permission.CAR_SPEED`도 같은 방식). 에뮬레이터 앱은 사용자 10으로 돌기 때문에 adb로 줄 때는 `pm grant --user 10 …`. 첫 실행 팝업에서 허용하거나 `adb shell pm grant --user 10 kr.kkaeumbaram android.permission.RECORD_AUDIO`.
 
 ### Virtual Console을 터미널에서
 
@@ -96,6 +97,7 @@ adb forward tcp:8095 tcp:8088
 tools/console.sh gear Drive      # 주행 시작
 tools/console.sh gear Park       # 정차 → 스트레칭
 tools/console.sh charge on       # 충전 포트 열림 → 낮잠
+tools/console.sh speed 80        # 주행 속도(km/h) → 트럭 모션 속도
 tools/console.sh hvac power=true # 팬 속도 제어 전제
 tools/console.sh state
 ```

@@ -1,6 +1,9 @@
 package kr.kkaeumbaram
 
 import ai.pleos.playground.location.fused.FusedLocation
+import android.car.VehiclePropertyIds
+import android.car.hardware.CarPropertyValue
+import android.car.hardware.property.CarPropertyManager
 import ai.pleos.playground.location.fused.listener.FusedLocationListener
 import ai.pleos.playground.location.fused.model.LocationData
 import ai.pleos.playground.navi.constants.WaypointIndex
@@ -59,6 +62,7 @@ class PleosCar(
     private val onGearPark: () -> Unit,
     private val onGearDrive: () -> Unit,
     private val onChargeStart: () -> Unit,
+    private val onSpeed: (Float) -> Unit = {},
 ) : Car {
     private val tag = "PleosCar"
     override val log = mutableListOf<String>()
@@ -68,6 +72,16 @@ class PleosCar(
     private val vehicle = Vehicle(context.applicationContext)
     private val navi = NaviHelper(context.applicationContext)
     private val fused = FusedLocation(context.applicationContext)
+    private val aaos = runCatching { android.car.Car.createCar(context.applicationContext) }.getOrNull()
+    private val speedCb = object : CarPropertyManager.CarPropertyEventCallback {
+        // 값이 바뀔 때만 넘긴다. 정차 중 계속 오는 0이 시연 패널에서 정한 속도를 덮어쓰지 않게
+        private var last = 0f
+        override fun onChangeEvent(v: CarPropertyValue<*>) {
+            val kmh = (v.value as? Float ?: return) * 3.6f
+            if (kmh != last) { last = kmh; l("차량 속도 ${kmh.toInt()}km/h"); onSpeed(kmh) }
+        }
+        override fun onErrorEvent(propId: Int, zone: Int) = l("차량 속도 오류")
+    }
     override var connected = false; private set
 
     private val driver = SeatArea(SeatValue.ROW_1_LEFT)
@@ -134,6 +148,12 @@ class PleosCar(
             .onFailure { l("NaviHelper 초기화 실패: ${it.message}") }
         runCatching { fused.initialize(); l("FusedLocation 연결") }
             .onFailure { l("FusedLocation 초기화 실패: ${it.message}") }
+        // Vehicle SDK에 주행 속도 API가 없어 AAOS 표준 CarPropertyManager로 읽는다 (m/s → km/h)
+        runCatching {
+            val ok = (aaos?.getCarManager(android.car.Car.PROPERTY_SERVICE) as? CarPropertyManager)
+                ?.registerCallback(speedCb, VehiclePropertyIds.PERF_VEHICLE_SPEED, CarPropertyManager.SENSOR_RATE_NORMAL)
+            l("차량 속도 구독: $ok")
+        }.onFailure { l("차량 속도 구독 실패: ${it.message}") }
     }
 
     override fun vent(strong: Boolean) {
@@ -198,7 +218,7 @@ class PleosCar(
         runCatching {
             vehicle.getGear().unregisterGearSelection(gearListener)
             vehicle.getEvBattery().unregisterEvChargePortOpen(chargeListener)
-            vehicle.release(); navi.removeListener(naviListener); navi.release(); fused.release()
+            vehicle.release(); navi.removeListener(naviListener); navi.release(); fused.release(); aaos?.disconnect()
         }
     }
 }

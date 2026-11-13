@@ -20,7 +20,7 @@ data class Ui(
     val restNavi: Pair<Int, Int>? = null, // 경유지 추가 뒤 내비가 준 남은 거리 m, 시간 s (경로가 있을 때만)
     val log: List<String> = emptyList(),
     val admin: Boolean = false,          // 어드민 뷰: 오른쪽 시연·디버그 패널이 열린 상태
-    val speedKmh: Float = 60f,           // 트럭 애니메이션 속도. 차량 속도 신호를 받으면 setSpeed로 넣는다
+    val speedKmh: Float = 60f,           // 트럭 애니메이션 속도. 차량 속도(CarPropertyManager)나 시연 패널이 setSpeed로 넣는다
 )
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
@@ -32,7 +32,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private fun log(s: String) { logLines.add(0, s); if (logLines.size > 40) logLines.removeAt(logLines.size - 1); _ui.update { it.copy(log = logLines.toList()) } }
 
     private val car: Car = runCatching {
-        PleosCar(app, onGearPark = engine::stopped, onGearDrive = engine::startDriving, onChargeStart = engine::chargingStarted)
+        PleosCar(app, onGearPark = engine::stopped, onGearDrive = engine::startDriving, onChargeStart = engine::chargingStarted, onSpeed = ::setSpeed)
     }.getOrElse { log("Vehicle SDK 로드 실패: ${it.message}"); NoCar() }
     private var voice: Voice? = null
     private val focus = AudioFocus(app, ::log)
@@ -109,7 +109,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun strongMode(on: Boolean) = engine.setStrongMode(on)
     fun toggleDemo() = _ui.update { it.copy(demo = !it.demo) }
     fun toggleAdmin() = _ui.update { it.copy(admin = !it.admin) }
-    fun setSpeed(kmh: Float) = _ui.update { it.copy(speedKmh = kmh.coerceAtLeast(0f)) }
+    fun setSpeed(kmh: Float) = _ui.update { it.copy(speedKmh = kmh.coerceIn(0f, 160f)) }
     fun fastForward(min: Int) = engine.tick(min * 60)
 
     fun gleo(action: String) {
