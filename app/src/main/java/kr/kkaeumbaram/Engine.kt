@@ -15,8 +15,8 @@ sealed class Effect {
     object VolumeUp : Effect()
     object VolumeNormal : Effect()
     data class Light(val on: Boolean) : Effect()
-    object SuggestRest : Effect()                        // UI: 쉼터 3곳 보여주기
-    object AddRestWaypoint : Effect()
+    object SuggestRest : Effect()                        // 진행 방향 앞쪽 가장 가까운 쉼터 1곳 고르기
+    object AddRestWaypoint : Effect()                    // 수락 → 경유지 추가(내비 화면이 앞으로 옴)
 }
 
 data class State(
@@ -36,6 +36,7 @@ data class State(
     val reactionMs: List<Long> = emptyList(),
     val naps: Int = 0,
     val restSuggested: Int = 0,
+    val restAccepted: Int = 0,           // 휴식 이행(쉼터 경유 수락)
     val stretches: Int = 0,
 ) {
     val avgReactionMs: Long get() = if (reactionMs.isEmpty()) 0 else reactionMs.sum() / reactionMs.size
@@ -53,8 +54,10 @@ class Engine(private val now: () -> Long = System::currentTimeMillis) {
         "다음은 어느 동네로 가요?",
     )
     private var qi = 0
+    private var airing = false   // 낮잠 기상 환기 중(IDLE). ventSec 뒤나 출발·충전 때 원복
+    private fun airOff() { if (airing) { airing = false; onEffect(Effect.VentOff) } }
 
-    // ponytail: 콜백 하나. 코루틴/Flow는 ViewModel이 감싼다.
+    // 콜백 하나. 코루틴/Flow는 ViewModel이 감싼다.
     var onEffect: (Effect) -> Unit = {}
     fun observe(l: (State) -> Unit) { listeners += l; l(state) }
     private fun set(s: State) { state = s; listeners.forEach { it(s) } }
@@ -68,6 +71,7 @@ class Engine(private val now: () -> Long = System::currentTimeMillis) {
 
     fun startDriving() {
         if (state.phase == Phase.DRIVING) return
+        airOff()
         set(state.copy(phase = Phase.DRIVING, phaseSec = 0, sinceAlertSec = 0, level = Level.L1, noAnswerStreak = 0))
     }
 
@@ -81,7 +85,7 @@ class Engine(private val now: () -> Long = System::currentTimeMillis) {
         val s = state
         val next = s.copy(phaseSec = s.phaseSec + dt)
         when (s.phase) {
-            Phase.IDLE -> set(next)
+            Phase.IDLE -> { set(next); if (next.phaseSec >= ventSec) airOff() }
             Phase.DRIVING -> {
                 val driven = s.sinceStopSec + dt
                 var n = next.copy(
@@ -154,7 +158,7 @@ class Engine(private val now: () -> Long = System::currentTimeMillis) {
             Level.L1 -> {
                 set(state.copy(level = Level.L2, noAnswerStreak = streak))
                 onEffect(Effect.VolumeUp)
-                onEffect(Effect.Say("대답이 없네요. 소리를 키울게요."))
+                onEffect(Effect.Say("대답이 없네요. 더 세게 깨울게요."))
                 vent()
             }
             else -> {
@@ -175,7 +179,7 @@ class Engine(private val now: () -> Long = System::currentTimeMillis) {
         if (state.phase != Phase.REST) return
         onEffect(Effect.AddRestWaypoint)
         onEffect(Effect.Say("쉼터를 경유지에 넣었어요. 도착하면 알려 드릴게요."))
-        set(state.copy(phase = Phase.DRIVING, phaseSec = 0, level = Level.L1, noAnswerStreak = 0, sinceAlertSec = 0, restDeclinedSec = -1))
+        set(state.copy(phase = Phase.DRIVING, phaseSec = 0, level = Level.L1, noAnswerStreak = 0, sinceAlertSec = 0, restDeclinedSec = -1, restAccepted = state.restAccepted + 1))
     }
 
     fun restDeclined() {
@@ -200,6 +204,7 @@ class Engine(private val now: () -> Long = System::currentTimeMillis) {
     /** 충전 포트 열림/충전 ON + 정차. */
     fun chargingStarted() {
         if (state.phase == Phase.NAP) return
+        airing = false
         onEffect(Effect.VentOff)
         set(state.copy(phase = Phase.NAP, phaseSec = 0, sinceStopSec = 0, sinceAlertSec = 0, level = Level.L1))
         onEffect(Effect.Say("충전 시작했어요. 20분만 눈 붙일까요? 조명 낮출게요."))
@@ -211,6 +216,7 @@ class Engine(private val now: () -> Long = System::currentTimeMillis) {
         set(state.copy(phase = Phase.IDLE, phaseSec = 0, naps = state.naps + 1))
         onEffect(Effect.Light(true))
         onEffect(Effect.Vent(true))
+        airing = true
         onEffect(Effect.Say("20분 지났어요. 일어나요. 바람 넣을게요."))
     }
 }

@@ -15,8 +15,12 @@ data class Ui(
     val voiceEngine: String = "준비 중",
     val demo: Boolean = true,            // 시연 모드: 60배속 + 신호 버튼
     val listening: Boolean = false,
-    val restOptions: List<Pair<RestStop, Double>> = emptyList(),
+    val rest: RestStop? = null,          // L3에서 고른 쉼터 1곳
+    val restKm: Double = 0.0,            // 직선거리(폴백 표시용)
+    val restNavi: Pair<Int, Int>? = null, // 경유지 추가 뒤 내비가 준 남은 거리 m, 시간 s (경로가 있을 때만)
     val log: List<String> = emptyList(),
+    val admin: Boolean = false,          // 어드민 뷰: 오른쪽 시연·디버그 패널이 열린 상태
+    val speedKmh: Float = 60f,           // 트럭 애니메이션 속도. 차량 속도(CarPropertyManager)나 시연 패널이 setSpeed로 넣는다
 )
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
@@ -28,14 +32,29 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private fun log(s: String) { logLines.add(0, s); if (logLines.size > 40) logLines.removeAt(logLines.size - 1); _ui.update { it.copy(log = logLines.toList()) } }
 
     private val car: Car = runCatching {
-        PleosCar(app, onGearPark = engine::stopped, onGearDrive = engine::startDriving, onChargeStart = engine::chargingStarted)
+        PleosCar(app, onGearPark = engine::stopped, onGearDrive = engine::startDriving, onChargeStart = engine::chargingStarted, onSpeed = ::setSpeed)
     }.getOrElse { log("Vehicle SDK 로드 실패: ${it.message}"); NoCar() }
     private var voice: Voice? = null
+    private val focus = AudioFocus(app, ::log)
+    private val main = android.os.Handler(android.os.Looper.getMainLooper())
+    private var preroll = false
+    // 말 묶음 시작에 포커스를 잡고 150ms 쉰 뒤 첫 문장(Pleos 선행 묵음 가이드: 첫 음절 잘림 방지), 큐가 비면 포커스 반납.
+    // TTS SDK가 재생을 쥐고 있어 PCM에 묵음을 못 붙인다 → 지연으로 대신. PCM을 직접 재생하게 되면 패딩으로.
+    private val speech = SpeechQueue(onBusy = { busy -> if (busy) { focus.gain(); preroll = true } else focus.abandon() }) { text, done ->
+        val v = voice
+        if (v == null) done()
+        else if (preroll) { preroll = false; main.postDelayed({ v.say(text, done) }, 150) }
+        else v.say(text, done)
+    }
     private val stops = RestStops.load(app)
 
     init {
         _ui.update { it.copy(carConnected = car.connected) }
-        engine.observe { s -> _ui.update { it.copy(s = s) } }
+        engine.observe { s ->
+            // 질문이 끝났는데(타임아웃·정차·버튼 응답) 마이크가 열려 있으면 닫는다
+            if (s.phase != Phase.QUESTION && _ui.value.listening) voice?.stopListening()
+            _ui.update { it.copy(s = s, listening = it.listening && s.phase == Phase.QUESTION) }
+        }
         engine.onEffect = ::apply
         VoiceFactory(app, ::log).create { v -> voice = v; _ui.update { it.copy(voiceEngine = v.engineName) }; log("음성 엔진: ${v.engineName}") }
         viewModelScope.launch {
@@ -51,23 +70,27 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun apply(e: Effect) {
         when (e) {
-            is Effect.Say -> voice?.say(e.text)
+            is Effect.Say -> speech.say(e.text)
             is Effect.Vent -> car.vent(e.strong)
             Effect.VentOff -> car.ventOff()
-            is Effect.Ask -> voice?.say(e.text) {
+            is Effect.Ask -> voice?.let { speech.say(e.text) {
+                if (engine.state.phase != Phase.QUESTION) return@say   // 질문을 읽는 사이 정차 등으로 넘어감
                 _ui.update { it.copy(listening = true) }
                 voice?.listen { heard ->
                     _ui.update { it.copy(listening = false) }
                     if (heard != null) { log("들음: $heard"); engine.answered() } else log("응답 없음")
                 }
-            } ?: log("음성 엔진 없음, 화면 버튼으로 응답")
+            } } ?: log("음성 엔진 없음, 화면 버튼으로 응답")
             Effect.VolumeUp -> voice?.volumeUp()
             Effect.VolumeNormal -> voice?.volumeNormal()
             is Effect.Light -> car.light(e.on)
-            Effect.SuggestRest -> car.lastLocation { lat, lon ->
-                _ui.update { it.copy(restOptions = RestStops.nearest(stops, lat, lon).map { r -> r to r.distanceKm(lat, lon) }) }
+            Effect.SuggestRest -> car.lastLocation { lat, lon, heading ->
+                val r = RestStops.pick(stops, lat, lon, heading) ?: return@lastLocation
+                _ui.update { it.copy(rest = r, restKm = r.distanceKm(lat, lon), restNavi = null) }
             }
-            Effect.AddRestWaypoint -> _ui.value.restOptions.firstOrNull()?.first?.let { car.addWaypoint(it.lat, it.lon, it.name) }
+            Effect.AddRestWaypoint -> _ui.value.rest?.let { r ->
+                car.addWaypoint(r.lat, r.lon, r.name) { m, s -> _ui.update { it.copy(restNavi = m to s) } }
+            }
         }
     }
 
@@ -85,17 +108,37 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun restDecline() = engine.restDeclined()
     fun strongMode(on: Boolean) = engine.setStrongMode(on)
     fun toggleDemo() = _ui.update { it.copy(demo = !it.demo) }
+    fun toggleAdmin() = _ui.update { it.copy(admin = !it.admin) }
+    fun setSpeed(kmh: Float) = _ui.update { it.copy(speedKmh = kmh.coerceIn(0f, 160f)) }
     fun fastForward(min: Int) = engine.tick(min * 60)
 
     fun gleo(action: String) {
         log("Gleo: $action")
-        when (action) {
-            "VENT_NOW" -> ventNow()
-            "I_AM_FINE" -> answered()
-            "GO_REST" -> { if (ui.value.s.phase != Phase.REST) apply(Effect.SuggestRest); restAccept() }
-            "STRONG_MODE" -> strongMode(true)
+        val phase = engine.state.phase
+        // 결과를 Gleo에 돌려준다. 안내는 앱이 직접 말하므로 Gleo 음성은 끈다(mode=silent)
+        val fail = when (action) {
+            "VENT_NOW" -> if (phase == Phase.DRIVING) { ventNow(); null } else "Ventilation can only start while driving and when no other step is in progress."
+            "I_AM_FINE" -> if (phase == Phase.QUESTION) { answered(); null } else "There is no check-in question waiting for an answer."
+            "GO_REST" -> {
+                if (phase == Phase.REST) restAccept()
+                else car.lastLocation { lat, lon, heading ->   // 쉼터 제안 단계가 아니어도 말 한마디로 바로 경유지에 넣는다
+                    val r = RestStops.pick(stops, lat, lon, heading) ?: return@lastLocation
+                    _ui.update { it.copy(rest = r, restKm = r.distanceKm(lat, lon), restNavi = null) }
+                    apply(Effect.AddRestWaypoint)
+                    speech.say("${r.name}을 경유지에 넣었어요.")
+                }
+                null
+            }
+            else -> return
         }
+        val response = org.json.JSONObject()
+            .put("functionName", action).put("status", if (fail == null) "success" else "fail")
+            .put("message", fail ?: "The request was handled by the app.").put("mode", "silent")
+        val app = getApplication<Application>()
+        app.sendBroadcast(android.content.Intent("ai.pleos.playground.intent.action.APP_ACTION_RESPONSE")
+            .putExtra("packageName", app.packageName).putExtra("response", response.toString()))
+        log("Gleo 회신: ${if (fail == null) "success" else "fail"}")
     }
 
-    override fun onCleared() { voice?.release(); car.release() }
+    override fun onCleared() { focus.abandon(); voice?.release(); car.release() }
 }

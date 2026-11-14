@@ -15,11 +15,15 @@
     <uses-permission android:name="pleos.car.permission.CONTROL_CAR_DRIVE" />
     <uses-permission android:name="pleos.car.permission.CAR_POWERTRAIN" />
     <uses-permission android:name="pleos.car.permission.CAR_ENERGY" />
+    <uses-permission android:name="android.car.permission.CAR_SPEED" />
+    <uses-permission android:name="pleos.car.permission.NAVI_ROUTE" />
+    <uses-permission android:name="pleos.car.permission.NAVI_ROUTE_SEARCH" />
     <!-- Speech / 위치 / 네트워크 -->
     <uses-permission android:name="pleos.car.permission.STT_SERVICE" />
     <uses-permission android:name="pleos.car.permission.TTS_SERVICE" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="pleos.car.permission.FUSED_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
@@ -44,7 +48,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <!-- Gleo Interface: 발화 → Action 브로드캐스트. 스키마는 assets/gleo_schema.json -->
+        <!-- Gleo Interface: 발화 → Action 브로드캐스트. 스키마는 assets/schema.json -->
         <receiver
             android:name=".GleoReceiver"
             android:exported="true">
@@ -52,7 +56,6 @@
                 <action android:name="VENT_NOW" />
                 <action android:name="I_AM_FINE" />
                 <action android:name="GO_REST" />
-                <action android:name="STRONG_MODE" />
             </intent-filter>
         </receiver>
     </application>

@@ -1,10 +1,38 @@
 # 깨움바람 (Kkaeumbaram)
 
-택배 기사 졸음 방지 앱. Pleos App Market 공모전 출품작. 30분마다 차가 환기하고 안부를 묻고, 안 깨면 세우게 만든다.
+**택배 기사 졸음 방지 앱.** 30분마다 차가 스스로 환기하고 안부를 묻고, 대답이 없으면 더 세게 깨우고, 그래도 안 깨면 진행 방향 가장 가까운 졸음쉼터를 경유지로 넣는다. 정차하면 90초 스트레칭, 충전 중엔 20분 낮잠 알람. 현대자동차그룹 차량용 앱 개발 공모전(Pleos App Market) 출품작.
 
-## 빌드
+## 제출 정보
 
-JDK 17과 Android Studio(Android SDK 34)가 필요하다. Android Studio로 폴더를 열면 Gradle 동기화가 자동으로 돌고, 터미널에서는 아래처럼 한다.
+| 항목 | 내용 |
+| --- | --- |
+| 앱 이름 | 깨움바람 (패키지 `kr.kkaeumbaram`, 버전 0.1.0) |
+| APK | [`apk/정아람_깨움바람_release.apk`](apk/정아람_깨움바람_release.apk) (release 빌드, 약 41MB) |
+| 에뮬레이터 | Pleos Connect 에뮬레이터 **v2.1.0** (`release_connect_v2.1.0`, Android 14 / API 34, Automotive arm64 시스템 이미지) |
+| 화면 규격 | 2560 × 1440, 160dpi(1px = 1dp). 앱은 Pleos 런처의 메인 패널 영역 **1682 × 1210** 에 뜬다(가로 853~2535, 세로 90~1300). 레이아웃은 이 패널 크기에 맞춰 설계 |
+| 사용 SDK | Pleos Playground Vehicle 2.3.2 · NaviHelper 3.0.5 · FusedLocation 1.1.3 · SpeechToText 3.3.1 · TextToSpeech 3.3.1 (공모전 허용 5종) |
+
+## 실행 방법
+
+### 1. APK로 바로 실행
+
+Pleos 에뮬레이터 `pleos`가 떠 있는 상태에서:
+
+```
+adb install -r apk/정아람_깨움바람_release.apk
+adb shell pm grant --user 10 kr.kkaeumbaram android.permission.RECORD_AUDIO
+adb shell pm grant --user 10 kr.kkaeumbaram pleos.car.permission.FUSED_LOCATION
+adb emu geo fix 127.0439 37.4598
+adb shell am start -n kr.kkaeumbaram/.MainActivity
+```
+
+- 에뮬레이터 앱은 사용자 10으로 돌기 때문에 `--user 10`이 필요하다. 권한은 첫 실행 팝업에서 허용해도 된다. 단, **기어가 P인 상태에서** 끝낼 것(D에서 팝업이 떠 있으면 "주행 중에는 사용할 수 없습니다"로 가려진다).
+- `geo fix`는 에뮬레이터 GPS 기본값이 미국이라 쉼터 거리 계산용 위치를 서울(만남의광장)로 옮기는 명령이다. 없으면 앱이 기본 좌표(서울 양재)를 쓴다.
+- 앱이 뜨면 기어를 D로 넣는다(Virtual Console 또는 `tools/console.sh gear Drive`). 시연 모드가 켜져 있어 주행 30분이 30초로 흐른다. 전체 시나리오를 한 번에 돌리려면 `tools/demo.sh`(아래 "데모 스크립트").
+
+### 2. 소스에서 빌드
+
+JDK 17과 Android SDK 34가 필요하다. Android Studio로 폴더를 열면 Gradle 동기화가 자동으로 돈다. 터미널에서는:
 
 맥:
 ```
@@ -19,9 +47,11 @@ gradlew.bat testDebugUnitTest assembleDebug
 adb install -r app\build\outputs\apk\debug\app-debug.apk
 ```
 
-JDK가 안 잡히면 Android Studio에 들어 있는 JDK를 쓰면 된다. 윈도우 기준 `C:\Program Files\Android\Android Studio\jbr`를 `JAVA_HOME` 환경 변수로 지정한다.
+JDK가 안 잡히면 Android Studio에 들어 있는 JDK를 쓴다. 윈도우 기준 `C:\Program Files\Android\Android Studio\jbr`를 `JAVA_HOME`으로 지정한다.
 
-`local.properties`는 각자 컴퓨터에만 있는 파일이다(깃에 안 올라감). 처음 받으면 `local.properties.example`을 복사해 `local.properties`로 이름을 바꾸고 값을 채운다.
+제출용 APK는 `./gradlew assembleRelease` → `app/build/outputs/apk/release/app-release.apk`를 `apk/정아람_깨움바람_release.apk`로 복사한 것이다(debug 키 서명, 난독화 없음. 앱마켓 정식 출시 때 전용 keystore로 교체).
+
+`local.properties`는 각자 컴퓨터에만 있는 파일이다(깃에 안 올라감). 처음 받으면 `local.properties.example`을 복사해 `local.properties`로 이름을 바꾸고 값을 채운다. Pleos TTS/STT를 서버 모드로 쓸 때 필요한 키이고, 비어 있어도 빌드와 나머지 기능은 동작한다.
 
 ```
 sdk.dir=C\:\\Users\\<이름>\\AppData\\Local\\Android\\Sdk    # 윈도우. 맥은 /Users/<이름>/Library/Android/sdk
@@ -31,18 +61,31 @@ pleos.clientSecret=<My Project 콘솔의 Client Secret>
 
 Pleos SDK는 `settings.gradle.kts`의 Pleos Maven에서 받는다.
 
+## 테스트 환경 및 필요한 설정
+
+| 항목 | 값 |
+| --- | --- |
+| 개발·테스트 기기 | Pleos Connect 에뮬레이터 v2.1.0, AVD `pleos`(RAM 4GB, **Cold boot** 필수. Quick boot면 차량 신호가 안 들어온다) |
+| 호스트 | macOS(Apple Silicon) + Android Studio, 윈도우(x86_64)에서도 빌드·실행 확인 |
+| 런타임 권한 | `android.permission.RECORD_AUDIO`(질문 응답 STT), `pleos.car.permission.FUSED_LOCATION`(쉼터 거리), `android.car.permission.CAR_SPEED`(주행 속도 표시) |
+| 매니페스트 권한 | Vehicle HVAC·창문·시트·앰비언트·기어·충전, `pleos.car.permission.NAVI_ROUTE` / `NAVI_ROUTE_SEARCH`(쉼터 경유지 추가) |
+| 차량 신호 주입 | Virtual Console(에뮬레이터 안 8088 포트, `adb forward tcp:8095 tcp:8088` 후 http://localhost:8095) 또는 `tools/console.sh`. 공식 지원 범위는 기어·가감속·텔테일이며 충전 포트·HVAC 주입은 실측으로 동작을 확인했지만 비공식. 앱 안의 시연 패널(우측 상단 아이콘, 단축키 `A`)에 같은 신호 버튼이 백업으로 있다 |
+| 음성 | Pleos STT는 에뮬레이터 온디바이스로 동작. TTS는 에뮬레이터에 온디바이스 엔진이 없어 소리가 나지 않으며(실차에서 동작), 안내 문장은 화면 카드에 같이 표시된다. 맥 마이크 연결은 아래 "마이크" 절 |
+| 단위 테스트 | `./gradlew testDebugUnitTest` (상태 기계 Engine, 음성 큐, 쉼터 선택) |
+
 ## 구조
 
 | 파일 | 역할 |
 | --- | --- |
 | `Engine.kt` | 상태 기계. Android 의존 없음. 30분 타이머 → 환기 → 질문·반응시간 → L2 세게 → L3 쉼터, 정차 스트레칭, 충전 낮잠 |
-| `EngineTest.kt` | 위 흐름의 JVM 테스트 3개 |
+| `EngineTest.kt` · `SpeechQueueTest.kt` · `RestStopsTest.kt` · `SceneMathTest.kt` | JVM 단위 테스트 14개(상태 기계 흐름, 말하기 큐, 진행 방향 쉼터 선택, 장면 루프·스트레칭 자세 계산) |
 | `Car.kt` | `PleosCar`: Vehicle(HVAC·창문·시트·조명·기어·충전) + NaviHelper(경유지) + FusedLocation. 실패는 로그만, 흐름은 계속 |
 | `Voice.kt` | `PleosVoice`(TTS/STT ON_DEVICE) → 실패 시 `AndroidVoice`(기본 엔진) |
 | `MainViewModel.kt` | Engine 효과를 Car/Voice로 연결, 1초 틱, 시연 모드 |
 | `Ui.kt` | 3단 화면: 상태·리포트 / 메인 카드 / 시연 패널·로그 |
-| `GleoReceiver.kt` + `assets/gleo_schema.json` | Gleo 발화 → Action 브로드캐스트 (VENT_NOW, I_AM_FINE, GO_REST, STRONG_MODE) |
-| `assets/rest_stops.csv` | 졸음쉼터 좌표. 지금은 수도권 샘플 12곳(근사값). 제출 전 data.go.kr 15028203 CSV로 교체 |
+| `Scenes.kt` · `SceneMath.kt` · `VectorArt.kt` | 메인 카드의 벡터 장면(주행·환기·질문·쉼터·낮잠·스트레칭). 움직임은 주행 거리와 시간에서 계산하고, 그림 조각은 path 데이터로 둔다 |
+| `GleoReceiver.kt` + `assets/schema.json` | Gleo Interface 연동(Pleos 구현 가이드 규격). App Schema에 음성 호출 함수 3개(VENT_NOW 지금 환기, I_AM_FINE 괜찮아요, GO_REST 쉼터 경유)를 `component: service`로 등록하고, Action 브로드캐스트를 받아 처리한 뒤 결과를 `APP_ACTION_RESPONSE` 브로드캐스트로 Gleo에 돌려준다(안내는 앱이 직접 말하므로 `mode: silent`). 에뮬레이터 이미지에는 Gleo 호출부가 없어 `adb shell am broadcast -a VENT_NOW -n kr.kkaeumbaram/.GleoReceiver`나 시연 패널·단축키로 같은 Action을 넣어 검증한다 |
+| `assets/rest_stops.csv` | 졸음쉼터 좌표(`name,lat,lon,road`). data.go.kr 15028203 한국도로공사 졸음쉼터 전국 253곳 |
 
 ## 시연 모드
 
@@ -67,17 +110,24 @@ Pleos SDK는 `settings.gradle.kts`의 Pleos Maven에서 받는다.
 | Vehicle·NaviHelper·FusedLocation 초기화 | 됨 |
 | 기어 P/D 구독, 충전 포트 구독 | 됨. Drive → 주행 시작, Park → 스트레칭, 포트 열림 → 낮잠 |
 | 외기 전환(recirc off), 팬 6, 시트 통풍 3, 창문 20%, 앰비언트 100 | 됨 (콘솔 state로 확인) |
+| 주행 속도 | Pleos SDK에는 읽는 API가 없어 Android Automotive 표준 `CarPropertyManager`(`PERF_VEHICLE_SPEED`, 권한 `android.car.permission.CAR_SPEED`)로 구독. 됨(11/13). 콘솔에서 40 → 120 → 0을 주입하면 그대로 수신되고 주행 화면의 트럭 속도에 반영된다. 가속 페달 값만 넣어서는 속도가 오르지 않는다 |
 | 팬 속도 | HVAC 전원이 꺼져 있으면 error code 2. 전원 ON 후 됨. area는 capability로 받아야 함(ROW_1_LEFT 단독은 거부) |
-| 실내등 | ON/OFF 되나 가끔 50001 오류 |
+| 실내등 | 에뮬레이터에서 50001 오류가 잦아 호출 제거. 조명 효과는 앰비언트(100/10)만 사용 |
 | Pleos TTS ON_DEVICE | `ON_DEVICE_ENGINE_ERROR`. 에뮬레이터엔 온디바이스 엔진이 없음 → HYBRID/SERVER + My Project 앱 등록(registerApp) 필요. Android 기본 TTS도 없음 |
 | Pleos STT | 됨(11/5). "두 번째"가 온디바이스로 인식돼 응답 처리까지 확인. 맥 마이크를 쓰려면 아래 "마이크" 절 참고. SDK가 `onEndedRecognition`을 최종 `onUpdated(isFinal=true)`보다 먼저 보내므로 종료 콜백에서 무응답 처리하면 결과를 놓친다(수정함) |
 | 주행 중(기어 D) 앱 화면 | 매니페스트 `distractionOptimized=true` 메타데이터로 유지됨(홈 화면이 `distractionOptimized: true`로 인식). 단, 기어가 D로 바뀌는 순간 앱 위에 권한 팝업 같은 시스템 창이 떠 있으면 그 작업 전체가 "주행 중에는 사용할 수 없습니다"로 가려지고 다시 풀리지 않는다 → 첫 실행·권한 허용은 반드시 P에서 끝낸 뒤 D로. 가려지면 P로 돌리고 앱을 닫았다 다시 연다 |
 
+### 오디오 (11/11 실측, Pleos 오디오 포커스·선행 묵음 가이드 반영)
+
+- 말하기 전에 오디오 포커스를 `AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK`(음악은 끊지 않고 줄이기만)으로 요청하고, 말 묶음이 끝나면 반납한다. 포커스를 잡은 뒤 150ms 쉬고 첫 문장을 말한다(첫 음절 잘림 방지).
+- 앱은 차량 볼륨을 바꾸지 못한다. `AudioManager.setStreamVolume`을 호출해도 차량 볼륨 그룹 값이 그대로다(`dumpsys car_service`로 확인). 그래서 L2는 볼륨이 아니라 더 센 환기로 깨우고, 안내 문장도 볼륨을 약속하지 않는다.
+- 질문이 끝나면(타임아웃·정차·버튼 응답) STT를 바로 닫는다.
+
 ### 마이크 (맥 → 에뮬레이터 STT)
 
-1. 에뮬레이터는 반드시 **Terminal 앱에서 직접** 띄운다. Claude Code나 백그라운드에서 띄우면 macOS 마이크 권한 팝업이 안 떠서 무음만 들어간다. 시스템 설정 > 개인정보 보호 및 보안 > 마이크에 "터미널"이 켜져 있어야 한다.
+1. 에뮬레이터는 반드시 **Terminal 앱에서 직접** 띄운다. IDE 내장 터미널이나 백그라운드에서 띄우면 macOS 마이크 권한 팝업이 안 떠서 무음만 들어간다. 시스템 설정 > 개인정보 보호 및 보안 > 마이크에 "터미널"이 켜져 있어야 한다.
 2. 호스트 마이크 전달은 기본 꺼짐. 부팅 후 `adb emu avd hostmicon` 한 번 실행(또는 에뮬레이터 ⋯ > Microphone > "Virtual microphone uses host audio input").
-3. 앱에 `RECORD_AUDIO` 권한이 있어야 한다. 첫 실행 팝업에서 허용하거나 `adb shell pm grant kr.kkaeumbaram android.permission.RECORD_AUDIO`.
+3. 앱에 `RECORD_AUDIO` 권한이 있어야 한다(쉼터 거리 계산용 위치는 `pleos.car.permission.FUSED_LOCATION`, 런타임 권한이라 첫 실행 팝업 또는 `pm grant`. 주행 속도용 `android.car.permission.CAR_SPEED`도 같은 방식). 에뮬레이터 앱은 사용자 10으로 돌기 때문에 adb로 줄 때는 `pm grant --user 10 …`. 첫 실행 팝업에서 허용하거나 `adb shell pm grant --user 10 kr.kkaeumbaram android.permission.RECORD_AUDIO`.
 
 ### Virtual Console을 터미널에서
 
@@ -88,8 +138,42 @@ adb forward tcp:8095 tcp:8088
 tools/console.sh gear Drive      # 주행 시작
 tools/console.sh gear Park       # 정차 → 스트레칭
 tools/console.sh charge on       # 충전 포트 열림 → 낮잠
+tools/console.sh speed 80        # 주행 속도(km/h) → 트럭 모션 속도
 tools/console.sh hvac power=true # 팬 속도 제어 전제
 tools/console.sh state
 ```
 
 쓰기 요청은 브라우저 세션 하트비트(`POST /browser/session?client=…`, 3초)가 살아 있어야 받는다. 스크립트가 매번 보낸다.
+
+## 데모 스크립트
+
+시연 패널의 신호는 키보드로도 넣을 수 있다(패널을 닫은 상태에서도 동작). ↑/↓ 속도 ±20, 1 +10분, 3 +30분, P 기어 P, D 기어 D, C 충전 시작, R 쉼터 가자, V 지금 환기, Y 괜찮아요, N 응답 없음, S 세게 깨워줘, M 시연 모드, A 패널 열기·닫기.
+
+`tools/demo.sh`가 위 시나리오를 처음부터 끝까지 순서대로 주입한다(윈도우는 Git Bash에서 `sh tools/demo.sh`). 에뮬레이터 `pleos`를 Terminal에서 띄우고 앱을 설치한 뒤 실행하면 adb 기기·앱 설치·콘솔 응답을 점검하고, 단계마다 `[mm:ss]`와 심사위원이 봐야 할 화면을 출력한다. 사람이 확인해야 하는 곳(P에서 첫 실행·권한, 쉼터 카드)은 Enter를 기다린다. `SKIP=1 tools/demo.sh`면 30초 주행 대기 대신 Gleo `VENT_NOW` 브로드캐스트로 바로 환기한다.
+
+```
+adb emu avd hostmicon     # 마이크 쓸 때만
+tools/demo.sh
+```
+
+아래 시각은 Engine.kt 상수(환기 60초, 무응답 15초, 스트레칭 90초, 낮잠 20분, 간격 30분)와 시연 모드 60배속으로 계산한 값이다. 기어 D 주입 시점을 00:00으로 잡았고, 1초 틱 때문에 단계마다 1~2초 늦을 수 있다. 리허설에서 실측해 고칠 것.
+
+| 단계 | 트리거 | 화면·차량에서 보이는 것 | 시각(계산값) |
+| --- | --- | --- | --- |
+| 0 | `gear Park`, `pm grant RECORD_AUDIO`, `am start`, Enter | 대기 중 카드, 시연 패널, 팝업 없음 | 준비 |
+| 0 | `hvac power=true` | (콘솔 state에서 power_on) | 준비 |
+| 1 | `gear Drive` | 주행 중, 다음 환기까지 카운트다운(1초=1분) | 00:00 |
+| 2 | 타이머(30분→30초) 또는 `SKIP=1`이면 즉시 | L1 환기: 외기·팬 6·창문 20%·앰비언트 ON, "환기할 시간이에요" | 00:30 |
+| 3 | 환기 60초 경과 | 환기 원복, 질문 "다음 배송지는 몇 번째예요?", 듣기 표시. 대답 안 함 | 01:30 |
+| 4 | 무응답 15초 | L2: "대답이 없네요. 더 세게 깨울게요", 세게 환기(팬 8·창문 3단) | 01:45 |
+| 5 | 환기 60초 경과 | 질문 "삐 소리가 나면 네라고 말해 주세요". 대답 안 함 | 02:45 |
+| 6 | 무응답 15초 | L3: "더는 깨우지 않을게요", 쉼터 1곳 카드(거리 km), Enter 대기 | 03:00 |
+| 7 | `gear Park` | "잠깐 섰네요. 90초만", 스트레칭 카드, 환기 OFF | 03:00+ |
+| 8 | 스트레칭 90초 경과 | "수고했어요", 대기 중 | 04:30 |
+| 9 | `charge on` | "충전 시작했어요. 20분만 눈 붙일까요?", 조명 OFF, 낮잠 카드 | 04:30+ |
+| 10 | 낮잠 20분→20초 | 조명 ON, 세게 환기, "20분 지났어요. 일어나요". 리포트: 환기 2회, 평균 반응시간 —(무응답이라 표본 없음), 최장 연속 30:00, 휴식 이행 0/1 | 04:50 |
+| 11 | 기상 환기 60초 경과 | 팬·창문 원복 | 05:50 |
+
+총 소요 약 6분(계산값) + Enter 두 번의 대기 시간. 11/11 리허설 실측: 단계마다 계산값보다 1~3초 늦고, Enter 대기 18초 포함 6분 22초. L1 → L2 → L3 쉼터 카드(기어 D에서 화면 유지) → 스트레칭 → 낮잠 → 기상 환기 원복까지 끊김 없이 돌았다.
+
+스크립트는 시작할 때 호스트 마이크를 끈다(`adb emu avd hostmicoff`). 켜 두면 주변 소리나 TTS 되울림이 대답으로 인식돼 무응답 시나리오가 L2로 넘어가지 않는다. 대답하는 장면을 찍을 때는 `MIC=1 tools/demo.sh`.

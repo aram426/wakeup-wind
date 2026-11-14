@@ -8,6 +8,7 @@ plugins {
 android {
     namespace = "kr.kkaeumbaram"
     compileSdk = 34
+    useLibrary("android.car")
 
     defaultConfig {
         applicationId = "kr.kkaeumbaram"
@@ -22,6 +23,8 @@ android {
     }
     buildTypes {
         release {
+            // 공모전 제출용 release APK는 debug 키로 서명(설치만 되면 됨). 앱마켓 정식 출시 때 전용 keystore로 교체.
+            signingConfig = signingConfigs.getByName("debug")
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }

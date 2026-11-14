@@ -1,17 +1,23 @@
 package kr.kkaeumbaram
 
 import ai.pleos.playground.location.fused.FusedLocation
+import android.car.VehiclePropertyIds
+import android.car.hardware.CarPropertyValue
+import android.car.hardware.property.CarPropertyManager
 import ai.pleos.playground.location.fused.listener.FusedLocationListener
 import ai.pleos.playground.location.fused.model.LocationData
 import ai.pleos.playground.navi.constants.WaypointIndex
 import ai.pleos.playground.navi.data.RequestWaypointInfo
 import ai.pleos.playground.navi.helper.NaviHelper
+import ai.pleos.playground.navi.helper.listener.NaviHelperEventListener
+import ai.pleos.playground.navi.data.WaypointInfo
+import ai.pleos.playground.navi.data.WaypointChangedInfo
+import ai.pleos.playground.navi.constants.NaviErrorCode
 import ai.pleos.playground.vehicle.Vehicle
 import ai.pleos.playground.vehicle.api.model.area.SeatArea
 import ai.pleos.playground.vehicle.api.model.area.WindowArea
 import ai.pleos.playground.vehicle.constant.area.SeatValue
 import ai.pleos.playground.vehicle.constant.area.WindowValue
-import ai.pleos.playground.vehicle.constant.control.LightSwitch
 import ai.pleos.playground.vehicle.constant.control.VehicleGear
 import ai.pleos.playground.vehicle.constant.control.WiperState
 import ai.pleos.playground.vehicle.listener.EvChargePortOpenListener
@@ -26,8 +32,11 @@ interface Car {
     fun vent(strong: Boolean)
     fun ventOff()
     fun light(on: Boolean)
-    fun addWaypoint(lat: Double, lon: Double, name: String)
-    fun lastLocation(cb: (Double, Double) -> Unit)
+    /** 경유지 추가. 내비가 경로를 잡으면 onInfo(남은 거리 m, 남은 시간 s). */
+    fun addWaypoint(lat: Double, lon: Double, name: String, onInfo: (Int, Int) -> Unit)
+    fun removeWaypoint()
+    /** 마지막 위치 (lat, lon, 진행 방향 heading 또는 null). */
+    fun lastLocation(cb: (Double, Double, Float?) -> Unit)
     fun release()
 }
 
@@ -38,8 +47,9 @@ class NoCar : Car {
     override fun vent(strong: Boolean) = l("vent(strong=$strong): 외기·팬${if (strong) 8 else 6}·창문${if (strong) 3 else 2}·시트통풍")
     override fun ventOff() = l("ventOff: 원복")
     override fun light(on: Boolean) = l("light($on)")
-    override fun addWaypoint(lat: Double, lon: Double, name: String) = l("addWaypoint($name)")
-    override fun lastLocation(cb: (Double, Double) -> Unit) = cb(37.4598, 127.0439) // 서울만남의광장 근처
+    override fun addWaypoint(lat: Double, lon: Double, name: String, onInfo: (Int, Int) -> Unit) = l("addWaypoint($name)")
+    override fun removeWaypoint() = l("removeWaypoint")
+    override fun lastLocation(cb: (Double, Double, Float?) -> Unit) = cb(37.4598, 127.0439, null) // 서울만남의광장 근처
     override fun release() {}
 }
 
@@ -52,6 +62,7 @@ class PleosCar(
     private val onGearPark: () -> Unit,
     private val onGearDrive: () -> Unit,
     private val onChargeStart: () -> Unit,
+    private val onSpeed: (Float) -> Unit = {},
 ) : Car {
     private val tag = "PleosCar"
     override val log = mutableListOf<String>()
@@ -61,6 +72,16 @@ class PleosCar(
     private val vehicle = Vehicle(context.applicationContext)
     private val navi = NaviHelper(context.applicationContext)
     private val fused = FusedLocation(context.applicationContext)
+    private val aaos = runCatching { android.car.Car.createCar(context.applicationContext) }.getOrNull()
+    private val speedCb = object : CarPropertyManager.CarPropertyEventCallback {
+        // 값이 바뀔 때만 넘긴다. 정차 중 계속 오는 0이 시연 패널에서 정한 속도를 덮어쓰지 않게
+        private var last = 0f
+        override fun onChangeEvent(v: CarPropertyValue<*>) {
+            val kmh = (v.value as? Float ?: return) * 3.6f
+            if (kmh != last) { last = kmh; l("차량 속도 ${kmh.toInt()}km/h"); onSpeed(kmh) }
+        }
+        override fun onErrorEvent(propId: Int, zone: Int) = l("차량 속도 오류")
+    }
     override var connected = false; private set
 
     private val driver = SeatArea(SeatValue.ROW_1_LEFT)
@@ -89,6 +110,17 @@ class PleosCar(
         override fun onFailed(e: Exception) = fail("chargePort")(e)
     }
 
+    private var waypointInfo: ((Int, Int) -> Unit)? = null
+    private val naviListener = object : NaviHelperEventListener {
+        override fun onWaypointChanged(info: WaypointChangedInfo) { l("경유지 변경: ${info.cmdType}"); runCatching { navi.getWaypointInfo() } }
+        override fun onWayPointInfo(list: List<WaypointInfo>) {
+            val w = list.firstOrNull() ?: return
+            l("경유지 ${w.name}: ${w.remainDistance}m ${w.remainTime}s")
+            waypointInfo?.invoke(w.remainDistance, w.remainTime)
+        }
+        override fun onError(code: NaviErrorCode) = l("내비 오류: $code")
+    }
+
     init {
         runCatching { vehicle.initialize(); connected = true; l("Vehicle SDK 초기화") }
             .onFailure { l("Vehicle SDK 초기화 실패: ${it.message}") }
@@ -112,10 +144,16 @@ class PleosCar(
                 }, fail("앰비언트 capability"))
             }.onFailure { l("capability 예외: ${it.message}") }
         }
-        runCatching { navi.initialize({ l("NaviHelper 연결") }, { l("NaviHelper 실패: ${it.message}") }) }
+        runCatching { navi.initialize({ l("NaviHelper 연결"); navi.addListener(naviListener) }, { l("NaviHelper 실패: ${it.message}") }) }
             .onFailure { l("NaviHelper 초기화 실패: ${it.message}") }
         runCatching { fused.initialize(); l("FusedLocation 연결") }
             .onFailure { l("FusedLocation 초기화 실패: ${it.message}") }
+        // Vehicle SDK에 주행 속도 API가 없어 AAOS 표준 CarPropertyManager로 읽는다 (m/s → km/h)
+        runCatching {
+            val ok = (aaos?.getCarManager(android.car.Car.PROPERTY_SERVICE) as? CarPropertyManager)
+                ?.registerCallback(speedCb, VehiclePropertyIds.PERF_VEHICLE_SPEED, CarPropertyManager.SENSOR_RATE_NORMAL)
+            l("차량 속도 구독: $ok")
+        }.onFailure { l("차량 속도 구독 실패: ${it.message}") }
     }
 
     override fun vent(strong: Boolean) {
@@ -147,30 +185,40 @@ class PleosCar(
     override fun light(on: Boolean) {
         if (!connected) return
         vehicle.getLight().setAmbientLightBrightness(ambientArea, if (on) 100 else 10, { _, v -> l("앰비언트 $v") }, fail("앰비언트"))
-        vehicle.getLight().setCabinLightSwitch(if (on) LightSwitch.ON else LightSwitch.OFF, { l("실내등 $it") }, fail("실내등"))
     }
 
-    override fun addWaypoint(lat: Double, lon: Double, name: String) {
+    override fun addWaypoint(lat: Double, lon: Double, name: String, onInfo: (Int, Int) -> Unit) {
+        waypointInfo = onInfo
         runCatching {
             navi.addWaypoint(RequestWaypointInfo(lat, lon, name, WaypointIndex.FIRST, "", "", "", ""))
             l("경유지 추가: $name")
+            navi.getWaypointInfo()   // 변경 콜백이 안 와도 한 번은 조회
         }.onFailure { l("경유지 실패: ${it.message}") }
     }
 
-    override fun lastLocation(cb: (Double, Double) -> Unit) {
+    override fun removeWaypoint() {
+        waypointInfo = null
+        runCatching { navi.removeWaypoint(WaypointIndex.FIRST); l("경유지 제거") }.onFailure { l("경유지 제거 실패: ${it.message}") }
+    }
+
+    override fun lastLocation(cb: (Double, Double, Float?) -> Unit) {
         runCatching {
             fused.getLastKnownLocation(object : FusedLocationListener {
-                override fun onChanged(d: LocationData?) { if (d != null) cb(d.latitude, d.longitude) else cb(37.4598, 127.0439) }
-                override fun onError(e: Exception) { l("위치 실패: ${e.message}"); cb(37.4598, 127.0439) }
+                // 에뮬레이터 기본 GPS는 구글 본사(37.42, -122.08)라 한국 밖이면 버린다. 데모는 `adb emu geo fix`로 국내 좌표를 넣는다.
+                override fun onChanged(d: LocationData?) {
+                    if (d != null && d.latitude in 33.0..39.0 && d.longitude in 124.0..132.0) cb(d.latitude, d.longitude, d.heading)
+                    else { l("위치 없음/국외(${d?.latitude}, ${d?.longitude}), 기본 좌표"); cb(37.4598, 127.0439, null) }
+                }
+                override fun onError(e: Exception) { l("위치 실패: ${e.message}"); cb(37.4598, 127.0439, null) }
             })
-        }.onFailure { l("위치 호출 실패: ${it.message}"); cb(37.4598, 127.0439) }
+        }.onFailure { l("위치 호출 실패: ${it.message}"); cb(37.4598, 127.0439, null) }
     }
 
     override fun release() {
         runCatching {
             vehicle.getGear().unregisterGearSelection(gearListener)
             vehicle.getEvBattery().unregisterEvChargePortOpen(chargeListener)
-            vehicle.release(); navi.release(); fused.release()
+            vehicle.release(); navi.removeListener(naviListener); navi.release(); fused.release(); aaos?.disconnect()
         }
     }
 }

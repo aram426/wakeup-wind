@@ -7,6 +7,8 @@ import ai.pleos.playground.tts.listener.EventListener
 import ai.pleos.playground.tts.listener.OnInitializeListener
 import android.content.Context
 import android.content.Intent
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.os.Bundle
 import android.speech.RecognitionListener
@@ -22,9 +24,55 @@ interface Voice {
     val engineName: String
     fun say(text: String, onDone: () -> Unit = {})
     fun listen(onHeard: (String?) -> Unit)   // null = 못 들음
+    fun stopListening()
     fun volumeUp()
     fun volumeNormal()
     fun release()
+}
+
+/**
+ * 문장 큐. 앞 문장의 완료 콜백이 와야 다음 문장을 말한다.
+ * onDone은 큐가 완전히 빈 뒤에 호출된다(질문 → 그때 STT를 연다).
+ * 백엔드는 TTS 오류도 onDone으로 알리므로 오류로 큐가 멈추지 않는다.
+ */
+class SpeechQueue(private val onBusy: (Boolean) -> Unit = {}, private val speak: (String, onDone: () -> Unit) -> Unit) {
+    private val q = ArrayDeque<Pair<String, () -> Unit>>()
+    private val whenIdle = mutableListOf<() -> Unit>()
+    private var speaking = false
+    private var active = false   // 첫 문장 시작 ~ 큐가 빌 때까지. 오디오 포커스 구간
+
+    fun say(text: String, onDone: () -> Unit = {}) { synchronized(this) { q.addLast(text to onDone) }; pump() }
+
+    private fun pump() {
+        val item: Pair<String, () -> Unit>?
+        val flush: List<() -> Unit>
+        val edge: Boolean                      // active가 바뀌었나
+        synchronized(this) {
+            if (speaking) return
+            item = q.removeFirstOrNull()
+            edge = active != (item != null)
+            active = item != null
+            if (item != null) { speaking = true; whenIdle += item.second; flush = emptyList() }
+            else { flush = whenIdle.toList(); whenIdle.clear() }
+        }
+        if (edge) onBusy(item != null)
+        if (item == null) { flush.forEach { it() }; return }
+        speak(item.first) { synchronized(this) { speaking = false }; pump() }
+    }
+}
+
+/**
+ * 음성 안내용 오디오 포커스(Pleos 오디오 포커스 가이드). 음악은 끊지 않고 줄이기만(MAY_DUCK) 요청하고, 말이 끝나면 돌려준다.
+ * 포커스를 뺏겨도(통화 등) 문장을 중간에 끊지 않는다. 안내가 몇 초라서. 긴 오디오를 틀게 되면 LOSS에서 tts.stop().
+ */
+class AudioFocus(context: Context, private val log: (String) -> Unit) {
+    private val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    private val req = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+        .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
+        .setOnAudioFocusChangeListener { logi("audio focus change $it") }
+        .build()
+    fun gain() { if (runCatching { am.requestAudioFocus(req) }.getOrNull() != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) log("오디오 포커스 거부됨") }
+    fun abandon() { runCatching { am.abandonAudioFocusRequest(req) } }
 }
 
 class VoiceFactory(private val context: Context, private val log: (String) -> Unit) {
@@ -98,6 +146,8 @@ class PleosVoice(private val context: Context, private val log: (String) -> Unit
 
     override fun say(text: String, onDone: () -> Unit) { sayDone = onDone; runCatching { tts.speak(text, true) }.onFailure { log("speak 실패"); onDone() } }
     override fun listen(onHeard: (String?) -> Unit) { logi("STT listen"); heard = onHeard; runCatching { stt.request() }.onFailure { log("STT request 실패"); deliver(null) } }
+    override fun stopListening() { heard = null; runCatching { stt.stop() } }
+    // Pleos(AAOS)에서는 STREAM_MUSIC 볼륨이 차량 볼륨 그룹에 반영되지 않는다(11/11 dumpsys 실측, 그룹 볼륨은 시스템 권한). 일반 기기에서만 효과.
     override fun volumeUp() = setVol(0.9f)
     override fun volumeNormal() = setVol(0.6f)
     private fun setVol(f: Float) = runCatching {
@@ -160,6 +210,7 @@ class AndroidVoice(private val context: Context, private val log: (String) -> Un
         val s = AudioManager.STREAM_MUSIC
         audio.setStreamVolume(s, (audio.getStreamMaxVolume(s) * f).toInt(), 0)
     }.let {}
+    override fun stopListening() { recognizer?.cancel() }
     override fun release() { tts.shutdown(); recognizer?.destroy() }
 }
 
