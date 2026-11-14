@@ -43,7 +43,7 @@ Pleos SDK는 `settings.gradle.kts`의 Pleos Maven에서 받는다.
 | `Voice.kt` | `PleosVoice`(TTS/STT ON_DEVICE) → 실패 시 `AndroidVoice`(기본 엔진) |
 | `MainViewModel.kt` | Engine 효과를 Car/Voice로 연결, 1초 틱, 시연 모드 |
 | `Ui.kt` | 3단 화면: 상태·리포트 / 메인 카드 / 시연 패널·로그 |
-| `GleoReceiver.kt` + `assets/gleo_schema.json` | Gleo Interface 연동 준비: App Schema와 Action 브로드캐스트 수신부 (VENT_NOW, I_AM_FINE, GO_REST, STRONG_MODE). App Schema 승인 전이라 실제 Gleo 발화로는 호출되지 않고, 시연은 `adb` 브로드캐스트와 시연 패널 버튼으로 같은 Action을 보낸다 |
+| `GleoReceiver.kt` + `assets/schema.json` | Gleo Interface 연동(Pleos 구현 가이드 규격). App Schema에 음성 호출 함수 3개(VENT_NOW 지금 환기, I_AM_FINE 괜찮아요, GO_REST 쉼터 경유)를 `component: service`로 등록하고, Action 브로드캐스트를 받아 처리한 뒤 결과를 `APP_ACTION_RESPONSE` 브로드캐스트로 Gleo에 돌려준다(안내는 앱이 직접 말하므로 `mode: silent`). 에뮬레이터 이미지에는 Gleo 호출부가 없어 `adb shell am broadcast -a VENT_NOW -n kr.kkaeumbaram/.GleoReceiver`나 시연 패널·단축키로 같은 Action을 넣어 검증한다 |
 | `assets/rest_stops.csv` | 졸음쉼터 좌표(`name,lat,lon,road`). data.go.kr 15028203 한국도로공사 졸음쉼터 전국 253곳 |
 
 ## 시연 모드
@@ -126,7 +126,7 @@ tools/demo.sh
 | 3 | 환기 60초 경과 | 환기 원복, 질문 "다음 배송지는 몇 번째예요?", 듣기 표시. 대답 안 함 | 01:30 |
 | 4 | 무응답 15초 | L2: "대답이 없네요. 더 세게 깨울게요", 세게 환기(팬 8·창문 3단) | 01:45 |
 | 5 | 환기 60초 경과 | 질문 "삐 소리가 나면 네라고 말해 주세요". 대답 안 함 | 02:45 |
-| 6 | 무응답 15초 | L3: "더는 깨우지 않을게요", 쉼터 3곳 카드(거리 km), Enter 대기 | 03:00 |
+| 6 | 무응답 15초 | L3: "더는 깨우지 않을게요", 쉼터 1곳 카드(거리 km), Enter 대기 | 03:00 |
 | 7 | `gear Park` | "잠깐 섰네요. 90초만", 스트레칭 카드, 환기 OFF | 03:00+ |
 | 8 | 스트레칭 90초 경과 | "수고했어요", 대기 중 | 04:30 |
 | 9 | `charge on` | "충전 시작했어요. 20분만 눈 붙일까요?", 조명 OFF, 낮잠 카드 | 04:30+ |
