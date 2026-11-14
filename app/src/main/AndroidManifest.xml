@@ -48,7 +48,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <!-- Gleo Interface: 발화 → Action 브로드캐스트. 스키마는 assets/gleo_schema.json -->
+        <!-- Gleo Interface: 발화 → Action 브로드캐스트. 스키마는 assets/schema.json -->
         <receiver
             android:name=".GleoReceiver"
             android:exported="true">
@@ -56,7 +56,6 @@
                 <action android:name="VENT_NOW" />
                 <action android:name="I_AM_FINE" />
                 <action android:name="GO_REST" />
-                <action android:name="STRONG_MODE" />
             </intent-filter>
         </receiver>
     </application>

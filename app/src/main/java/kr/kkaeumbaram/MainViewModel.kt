@@ -114,12 +114,30 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun gleo(action: String) {
         log("Gleo: $action")
-        when (action) {
-            "VENT_NOW" -> ventNow()
-            "I_AM_FINE" -> answered()
-            "GO_REST" -> { if (ui.value.s.phase != Phase.REST) apply(Effect.SuggestRest); restAccept() }
-            "STRONG_MODE" -> strongMode(true)
+        val phase = engine.state.phase
+        // 결과를 Gleo에 돌려준다. 안내는 앱이 직접 말하므로 Gleo 음성은 끈다(mode=silent)
+        val fail = when (action) {
+            "VENT_NOW" -> if (phase == Phase.DRIVING) { ventNow(); null } else "Ventilation can only start while driving and when no other step is in progress."
+            "I_AM_FINE" -> if (phase == Phase.QUESTION) { answered(); null } else "There is no check-in question waiting for an answer."
+            "GO_REST" -> {
+                if (phase == Phase.REST) restAccept()
+                else car.lastLocation { lat, lon, heading ->   // 쉼터 제안 단계가 아니어도 말 한마디로 바로 경유지에 넣는다
+                    val r = RestStops.pick(stops, lat, lon, heading) ?: return@lastLocation
+                    _ui.update { it.copy(rest = r, restKm = r.distanceKm(lat, lon), restNavi = null) }
+                    apply(Effect.AddRestWaypoint)
+                    speech.say("${r.name}을 경유지에 넣었어요.")
+                }
+                null
+            }
+            else -> return
         }
+        val response = org.json.JSONObject()
+            .put("functionName", action).put("status", if (fail == null) "success" else "fail")
+            .put("message", fail ?: "The request was handled by the app.").put("mode", "silent")
+        val app = getApplication<Application>()
+        app.sendBroadcast(android.content.Intent("ai.pleos.playground.intent.action.APP_ACTION_RESPONSE")
+            .putExtra("packageName", app.packageName).putExtra("response", response.toString()))
+        log("Gleo 회신: ${if (fail == null) "success" else "fail"}")
     }
 
     override fun onCleared() { focus.abandon(); voice?.release(); car.release() }

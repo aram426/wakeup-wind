@@ -1,0 +1,35 @@
+{
+  "packageName": "kr.kkaeumbaram",
+  "appDescription": "A drowsiness prevention app for delivery drivers that ventilates the cabin, checks on the driver by voice, and guides to a nearby rest area.",
+  "invokeWord": "깨움바람",
+  "version": "0.1.0",
+  "actionCalls": [
+    {
+      "type": "function",
+      "function": {
+        "name": "VENT_NOW",
+        "description": "Starts a short cabin ventilation right away by bringing in outside air and opening the windows slightly.",
+        "parameters": { "type": "object", "properties": {}, "required": [] },
+        "component": "service"
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "I_AM_FINE",
+        "description": "Tells the app that the driver is alert in response to its check-in question.",
+        "parameters": { "type": "object", "properties": {}, "required": [] },
+        "component": "service"
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "GO_REST",
+        "description": "Adds the nearest rest area ahead on the route as a navigation waypoint.",
+        "parameters": { "type": "object", "properties": {}, "required": [] },
+        "component": "service"
+      }
+    }
+  ]
+}
