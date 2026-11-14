@@ -184,9 +184,9 @@ fun AppScreen(ui: Ui, vm: MainViewModel?) {
 private fun mmss(sec: Int) = "%d:%02d".format(sec / 60, sec % 60)
 
 @Composable
-private fun StatusPane(ui: Ui, vm: MainViewModel?, m: Modifier) {
+private fun StatusPane(ui: Ui, vm: MainViewModel?, modifier: Modifier) {
     val s = ui.s
-    Column(m.fillMaxHeight().pane().padding(22.dp)) {
+    Column(modifier.fillMaxHeight().pane().padding(22.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             WindIcon(28.dp, Brand)
             Text("깨움바람", color = Ink, style = Type.Brand)
@@ -284,9 +284,9 @@ private fun WindIcon(size: Dp, color: Color) {
 
 /** 지금 환기: 옅은 파랑 바탕의 패널 폭 버튼(높이 64). */
 @Composable
-private fun VentButton(m: Modifier, onClick: () -> Unit) {
+private fun VentButton(modifier: Modifier, onClick: () -> Unit) {
     Row(
-        m.height(64.dp).clip(CardShape).background(BrandSoft).tap(onClick),
+        modifier.height(64.dp).clip(CardShape).background(BrandSoft).tap(onClick),
         horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically,
     ) {
         WindIcon(32.dp, BrandDeep)
@@ -296,9 +296,9 @@ private fun VentButton(m: Modifier, onClick: () -> Unit) {
 
 /** 어드민 전환 버튼: 44x44 터치 영역 안의 사람 + 방패 아이콘(36 상자, 선 1.5). */
 @Composable
-private fun AdminButton(onClick: () -> Unit, m: Modifier = Modifier) {
+private fun AdminButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
     val d = LocalDensity.current.density
-    Canvas(m.size(44.dp).clip(ControlShape).tap(onClick)) {
+    Canvas(modifier.size(44.dp).clip(ControlShape).tap(onClick)) {
         withTransform({ scale(d, d, Offset.Zero); translate(6f, 6f) }) {
             val st = Stroke(1.5f, cap = StrokeCap.Round, join = StrokeJoin.Round)
             drawCircle(IconGray, 4f, Offset(14f, 9f), style = st)
@@ -318,13 +318,13 @@ private fun AdminButton(onClick: () -> Unit, m: Modifier = Modifier) {
 }
 
 @Composable
-private fun MainCard(ui: Ui, vm: MainViewModel?, m: Modifier) {
+private fun MainCard(ui: Ui, vm: MainViewModel?, modifier: Modifier) {
     val s = ui.s
     val lv = s.level
     // Engine.vent()와 같은 기준: L2 이상이거나 "세게 깨워줘"면 세게 환기
     val strong = lv != Level.L1 || s.strongMode
     val sky = s.phase == Phase.DRIVING || s.phase == Phase.IDLE || s.phase == Phase.REST
-    Box(m.fillMaxHeight().pane().clip(PaneShape).then(if (sky) Modifier.background(SkyBrush) else Modifier)) {
+    Box(modifier.fillMaxHeight().pane().clip(PaneShape).then(if (sky) Modifier.background(SkyBrush) else Modifier)) {
         when (s.phase) {
             Phase.DRIVING -> DrivingScene(ui.speedKmh, Modifier.fillMaxSize())
             Phase.IDLE -> DrivingScene(0f, Modifier.fillMaxSize())
@@ -411,16 +411,16 @@ private fun TimerBar(label: String, value: String, filled: Int, color: Color) {
 
 /** 주요 버튼: 브랜드 파랑, 큰 글자. */
 @Composable
-private fun PrimaryButton(label: String, m: Modifier, height: Dp = 80.dp, onClick: () -> Unit) {
-    Box(m.height(height).clip(CardShape).background(Brand).tap(onClick), contentAlignment = Alignment.Center) {
+private fun PrimaryButton(label: String, modifier: Modifier, height: Dp = 80.dp, onClick: () -> Unit) {
+    Box(modifier.height(height).clip(CardShape).background(Brand).tap(onClick), contentAlignment = Alignment.Center) {
         Text(label, color = Color.White, style = Type.ButtonL)
     }
 }
 
 /** 보조 버튼: 흰 바탕에 테두리. */
 @Composable
-private fun OutlineButton(label: String, m: Modifier, style: TextStyle, color: Color, onClick: () -> Unit) {
-    Box(m.clip(CardShape).background(Panel).border(2.dp, Border, CardShape).tap(onClick), contentAlignment = Alignment.Center) {
+private fun OutlineButton(label: String, modifier: Modifier, style: TextStyle, color: Color, onClick: () -> Unit) {
+    Box(modifier.clip(CardShape).background(Panel).border(2.dp, Border, CardShape).tap(onClick), contentAlignment = Alignment.Center) {
         Text(label, color = color, style = style)
     }
 }
@@ -522,7 +522,7 @@ private fun StretchPhase(ui: Ui, vm: MainViewModel?) {
 
 /** 자세 카드. 넓으면(사용자 뷰) 그림 왼쪽·정보 오른쪽, 좁으면(어드민 뷰) 위에서 아래로 가운데 정렬. 진행 중인 자세만 그림이 움직인다. */
 @Composable
-private fun StretchCard(i: Int, active: Boolean, m: Modifier) {
+private fun StretchCard(i: Int, active: Boolean, modifier: Modifier) {
     val (title, sec, desc) = StretchSteps[i]
     val header = @Composable {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
@@ -534,7 +534,7 @@ private fun StretchCard(i: Int, active: Boolean, m: Modifier) {
     }
     val secColor = if (active) L1Deep else Ink
     BoxWithConstraints(
-        m.height(262.dp).clip(CardShape).background(if (active) L1Soft else Panel)
+        modifier.height(262.dp).clip(CardShape).background(if (active) L1Soft else Panel)
             .border(if (active) 2.dp else 1.dp, if (active) L1 else Border, CardShape),
     ) {
         if (maxWidth > 360.dp) {
@@ -575,8 +575,8 @@ private fun NapPhase(ui: Ui, vm: MainViewModel?) {
 }
 
 @Composable
-private fun DemoPane(ui: Ui, vm: MainViewModel?, m: Modifier) {
-    Column(m.fillMaxHeight().pane().padding(start = 22.dp, top = 22.dp, end = 22.dp, bottom = 12.dp)) {
+private fun DemoPane(ui: Ui, vm: MainViewModel?, modifier: Modifier) {
+    Column(modifier.fillMaxHeight().pane().padding(start = 22.dp, top = 22.dp, end = 22.dp, bottom = 12.dp)) {
         SectionLabel("시연 · 디버그")
         Spacer(Modifier.height(10.dp))
         Column(Modifier.fillMaxWidth().background(Inset, CardShape).padding(horizontal = 14.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -628,8 +628,8 @@ private fun SignalRow(a: Pair<String, () -> Unit>, b: Pair<String, () -> Unit>) 
 }
 
 @Composable
-private fun Signal(label: String, onClick: () -> Unit, m: Modifier) {
-    Box(m.height(56.dp).clip(ControlShape).background(Inset).tap(onClick), contentAlignment = Alignment.Center) {
+private fun Signal(label: String, onClick: () -> Unit, modifier: Modifier) {
+    Box(modifier.height(56.dp).clip(ControlShape).background(Inset).tap(onClick), contentAlignment = Alignment.Center) {
         Text(label, color = Ink, style = Type.Micro)
     }
 }
