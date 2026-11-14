@@ -1,10 +1,38 @@
 # 깨움바람 (Kkaeumbaram)
 
-택배 기사 졸음 방지 앱. Pleos App Market 공모전 출품작. 30분마다 차가 환기하고 안부를 묻고, 안 깨면 세우게 만든다.
+**택배 기사 졸음 방지 앱.** 30분마다 차가 스스로 환기하고 안부를 묻고, 대답이 없으면 더 세게 깨우고, 그래도 안 깨면 진행 방향 가장 가까운 졸음쉼터를 경유지로 넣는다. 정차하면 90초 스트레칭, 충전 중엔 20분 낮잠 알람. 현대자동차그룹 차량용 앱 개발 공모전(Pleos App Market) 출품작.
 
-## 빌드
+## 제출 정보
 
-JDK 17과 Android Studio(Android SDK 34)가 필요하다. Android Studio로 폴더를 열면 Gradle 동기화가 자동으로 돌고, 터미널에서는 아래처럼 한다.
+| 항목 | 내용 |
+| --- | --- |
+| 앱 이름 | 깨움바람 (패키지 `kr.kkaeumbaram`, 버전 0.1.0) |
+| APK | [`apk/WakeupWind_Kkaeumbaram_release.apk`](apk/WakeupWind_Kkaeumbaram_release.apk) (release 빌드, 약 41MB) |
+| 에뮬레이터 | Pleos Connect 에뮬레이터 **v2.1.0** (`release_connect_v2.1.0`, Android 14 / API 34, Automotive arm64 시스템 이미지) |
+| 화면 규격 | 2560 × 1440, 160dpi(1px = 1dp). 앱은 Pleos 런처의 메인 패널 영역 **1682 × 1210** 에 뜬다(가로 853~2535, 세로 90~1300). 레이아웃은 이 패널 크기에 맞춰 설계 |
+| 사용 SDK | Pleos Playground Vehicle 2.3.2 · NaviHelper 3.0.5 · FusedLocation 1.1.3 · SpeechToText 3.3.1 · TextToSpeech 3.3.1 (공모전 허용 5종) |
+
+## 실행 방법
+
+### 1. APK로 바로 실행
+
+Pleos 에뮬레이터 `pleos`가 떠 있는 상태에서:
+
+```
+adb install -r apk/WakeupWind_Kkaeumbaram_release.apk
+adb shell pm grant --user 10 kr.kkaeumbaram android.permission.RECORD_AUDIO
+adb shell pm grant --user 10 kr.kkaeumbaram pleos.car.permission.FUSED_LOCATION
+adb emu geo fix 127.0439 37.4598
+adb shell am start -n kr.kkaeumbaram/.MainActivity
+```
+
+- 에뮬레이터 앱은 사용자 10으로 돌기 때문에 `--user 10`이 필요하다. 권한은 첫 실행 팝업에서 허용해도 된다. 단, **기어가 P인 상태에서** 끝낼 것(D에서 팝업이 떠 있으면 "주행 중에는 사용할 수 없습니다"로 가려진다).
+- `geo fix`는 에뮬레이터 GPS 기본값이 미국이라 쉼터 거리 계산용 위치를 서울(만남의광장)로 옮기는 명령이다. 없으면 앱이 기본 좌표(서울 양재)를 쓴다.
+- 앱이 뜨면 기어를 D로 넣는다(Virtual Console 또는 `tools/console.sh gear Drive`). 시연 모드가 켜져 있어 주행 30분이 30초로 흐른다. 전체 시나리오를 한 번에 돌리려면 `tools/demo.sh`(아래 "데모 스크립트").
+
+### 2. 소스에서 빌드
+
+JDK 17과 Android SDK 34가 필요하다. Android Studio로 폴더를 열면 Gradle 동기화가 자동으로 돈다. 터미널에서는:
 
 맥:
 ```
@@ -13,17 +41,17 @@ export JAVA_HOME=/opt/homebrew/opt/openjdk@17
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-제출용 APK는 `./gradlew assembleRelease` → `app/build/outputs/apk/release/app-release.apk` (debug 키 서명. APK는 깃에 올리지 않고 GitHub Release에 첨부).
-
 윈도우(PowerShell 또는 명령 프롬프트):
 ```
 gradlew.bat testDebugUnitTest assembleDebug
 adb install -r app\build\outputs\apk\debug\app-debug.apk
 ```
 
-JDK가 안 잡히면 Android Studio에 들어 있는 JDK를 쓰면 된다. 윈도우 기준 `C:\Program Files\Android\Android Studio\jbr`를 `JAVA_HOME` 환경 변수로 지정한다.
+JDK가 안 잡히면 Android Studio에 들어 있는 JDK를 쓴다. 윈도우 기준 `C:\Program Files\Android\Android Studio\jbr`를 `JAVA_HOME`으로 지정한다.
 
-`local.properties`는 각자 컴퓨터에만 있는 파일이다(깃에 안 올라감). 처음 받으면 `local.properties.example`을 복사해 `local.properties`로 이름을 바꾸고 값을 채운다.
+제출용 APK는 `./gradlew assembleRelease` → `app/build/outputs/apk/release/app-release.apk`를 `apk/WakeupWind_Kkaeumbaram_release.apk`로 복사한 것이다(debug 키 서명, 난독화 없음. 앱마켓 정식 출시 때 전용 keystore로 교체).
+
+`local.properties`는 각자 컴퓨터에만 있는 파일이다(깃에 안 올라감). 처음 받으면 `local.properties.example`을 복사해 `local.properties`로 이름을 바꾸고 값을 채운다. Pleos TTS/STT를 서버 모드로 쓸 때 필요한 키이고, 비어 있어도 빌드와 나머지 기능은 동작한다.
 
 ```
 sdk.dir=C\:\\Users\\<이름>\\AppData\\Local\\Android\\Sdk    # 윈도우. 맥은 /Users/<이름>/Library/Android/sdk
@@ -33,12 +61,24 @@ pleos.clientSecret=<My Project 콘솔의 Client Secret>
 
 Pleos SDK는 `settings.gradle.kts`의 Pleos Maven에서 받는다.
 
+## 테스트 환경 및 필요한 설정
+
+| 항목 | 값 |
+| --- | --- |
+| 개발·테스트 기기 | Pleos Connect 에뮬레이터 v2.1.0, AVD `pleos`(RAM 4GB, **Cold boot** 필수. Quick boot면 차량 신호가 안 들어온다) |
+| 호스트 | macOS(Apple Silicon) + Android Studio, 윈도우(x86_64)에서도 빌드·실행 확인 |
+| 런타임 권한 | `android.permission.RECORD_AUDIO`(질문 응답 STT), `pleos.car.permission.FUSED_LOCATION`(쉼터 거리), `android.car.permission.CAR_SPEED`(주행 속도 표시) |
+| 매니페스트 권한 | Vehicle HVAC·창문·시트·앰비언트·기어·충전, `pleos.car.permission.NAVI_ROUTE` / `NAVI_ROUTE_SEARCH`(쉼터 경유지 추가) |
+| 차량 신호 주입 | Virtual Console(에뮬레이터 안 8088 포트, `adb forward tcp:8095 tcp:8088` 후 http://localhost:8095) 또는 `tools/console.sh`. 공식 지원 범위는 기어·가감속·텔테일이며 충전 포트·HVAC 주입은 실측으로 동작을 확인했지만 비공식. 앱 안의 시연 패널(우측 상단 아이콘, 단축키 `A`)에 같은 신호 버튼이 백업으로 있다 |
+| 음성 | Pleos STT는 에뮬레이터 온디바이스로 동작. TTS는 에뮬레이터에 온디바이스 엔진이 없어 소리가 나지 않으며(실차에서 동작), 안내 문장은 화면 카드에 같이 표시된다. 맥 마이크 연결은 아래 "마이크" 절 |
+| 단위 테스트 | `./gradlew testDebugUnitTest` (상태 기계 Engine, 음성 큐, 쉼터 선택) |
+
 ## 구조
 
 | 파일 | 역할 |
 | --- | --- |
 | `Engine.kt` | 상태 기계. Android 의존 없음. 30분 타이머 → 환기 → 질문·반응시간 → L2 세게 → L3 쉼터, 정차 스트레칭, 충전 낮잠 |
-| `EngineTest.kt` | 위 흐름의 JVM 테스트 3개 |
+| `EngineTest.kt` · `SpeechQueueTest.kt` · `RestStopsTest.kt` | JVM 단위 테스트 9개(상태 기계 흐름, 말하기 큐, 진행 방향 쉼터 선택) |
 | `Car.kt` | `PleosCar`: Vehicle(HVAC·창문·시트·조명·기어·충전) + NaviHelper(경유지) + FusedLocation. 실패는 로그만, 흐름은 계속 |
 | `Voice.kt` | `PleosVoice`(TTS/STT ON_DEVICE) → 실패 시 `AndroidVoice`(기본 엔진) |
 | `MainViewModel.kt` | Engine 효과를 Car/Voice로 연결, 1초 틱, 시연 모드 |
