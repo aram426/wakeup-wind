@@ -78,11 +78,12 @@ Pleos SDK는 `settings.gradle.kts`의 Pleos Maven에서 받는다.
 | 파일 | 역할 |
 | --- | --- |
 | `Engine.kt` | 상태 기계. Android 의존 없음. 30분 타이머 → 환기 → 질문·반응시간 → L2 세게 → L3 쉼터, 정차 스트레칭, 충전 낮잠 |
-| `EngineTest.kt` · `SpeechQueueTest.kt` · `RestStopsTest.kt` | JVM 단위 테스트 9개(상태 기계 흐름, 말하기 큐, 진행 방향 쉼터 선택) |
+| `EngineTest.kt` · `SpeechQueueTest.kt` · `RestStopsTest.kt` · `SceneMathTest.kt` | JVM 단위 테스트 14개(상태 기계 흐름, 말하기 큐, 진행 방향 쉼터 선택, 장면 루프·스트레칭 자세 계산) |
 | `Car.kt` | `PleosCar`: Vehicle(HVAC·창문·시트·조명·기어·충전) + NaviHelper(경유지) + FusedLocation. 실패는 로그만, 흐름은 계속 |
 | `Voice.kt` | `PleosVoice`(TTS/STT ON_DEVICE) → 실패 시 `AndroidVoice`(기본 엔진) |
 | `MainViewModel.kt` | Engine 효과를 Car/Voice로 연결, 1초 틱, 시연 모드 |
 | `Ui.kt` | 3단 화면: 상태·리포트 / 메인 카드 / 시연 패널·로그 |
+| `Scenes.kt` · `SceneMath.kt` · `VectorArt.kt` | 메인 카드의 벡터 장면(주행·환기·질문·쉼터·낮잠·스트레칭). 움직임은 주행 거리와 시간에서 계산하고, 그림 조각은 path 데이터로 둔다 |
 | `GleoReceiver.kt` + `assets/schema.json` | Gleo Interface 연동(Pleos 구현 가이드 규격). App Schema에 음성 호출 함수 3개(VENT_NOW 지금 환기, I_AM_FINE 괜찮아요, GO_REST 쉼터 경유)를 `component: service`로 등록하고, Action 브로드캐스트를 받아 처리한 뒤 결과를 `APP_ACTION_RESPONSE` 브로드캐스트로 Gleo에 돌려준다(안내는 앱이 직접 말하므로 `mode: silent`). 에뮬레이터 이미지에는 Gleo 호출부가 없어 `adb shell am broadcast -a VENT_NOW -n kr.kkaeumbaram/.GleoReceiver`나 시연 패널·단축키로 같은 Action을 넣어 검증한다 |
 | `assets/rest_stops.csv` | 졸음쉼터 좌표(`name,lat,lon,road`). data.go.kr 15028203 한국도로공사 졸음쉼터 전국 253곳 |
 
