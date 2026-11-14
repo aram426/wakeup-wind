@@ -7,7 +7,7 @@
 | 항목 | 내용 |
 | --- | --- |
 | 앱 이름 | 깨움바람 (패키지 `kr.kkaeumbaram`, 버전 0.1.0) |
-| APK | [`apk/WakeupWind_Kkaeumbaram_release.apk`](apk/WakeupWind_Kkaeumbaram_release.apk) (release 빌드, 약 41MB) |
+| APK | [`apk/정아람_깨움바람_release.apk`](apk/정아람_깨움바람_release.apk) (release 빌드, 약 41MB) |
 | 에뮬레이터 | Pleos Connect 에뮬레이터 **v2.1.0** (`release_connect_v2.1.0`, Android 14 / API 34, Automotive arm64 시스템 이미지) |
 | 화면 규격 | 2560 × 1440, 160dpi(1px = 1dp). 앱은 Pleos 런처의 메인 패널 영역 **1682 × 1210** 에 뜬다(가로 853~2535, 세로 90~1300). 레이아웃은 이 패널 크기에 맞춰 설계 |
 | 사용 SDK | Pleos Playground Vehicle 2.3.2 · NaviHelper 3.0.5 · FusedLocation 1.1.3 · SpeechToText 3.3.1 · TextToSpeech 3.3.1 (공모전 허용 5종) |
@@ -19,7 +19,7 @@
 Pleos 에뮬레이터 `pleos`가 떠 있는 상태에서:
 
 ```
-adb install -r apk/WakeupWind_Kkaeumbaram_release.apk
+adb install -r apk/정아람_깨움바람_release.apk
 adb shell pm grant --user 10 kr.kkaeumbaram android.permission.RECORD_AUDIO
 adb shell pm grant --user 10 kr.kkaeumbaram pleos.car.permission.FUSED_LOCATION
 adb emu geo fix 127.0439 37.4598
@@ -49,7 +49,7 @@ adb install -r app\build\outputs\apk\debug\app-debug.apk
 
 JDK가 안 잡히면 Android Studio에 들어 있는 JDK를 쓴다. 윈도우 기준 `C:\Program Files\Android\Android Studio\jbr`를 `JAVA_HOME`으로 지정한다.
 
-제출용 APK는 `./gradlew assembleRelease` → `app/build/outputs/apk/release/app-release.apk`를 `apk/WakeupWind_Kkaeumbaram_release.apk`로 복사한 것이다(debug 키 서명, 난독화 없음. 앱마켓 정식 출시 때 전용 keystore로 교체).
+제출용 APK는 `./gradlew assembleRelease` → `app/build/outputs/apk/release/app-release.apk`를 `apk/정아람_깨움바람_release.apk`로 복사한 것이다(debug 키 서명, 난독화 없음. 앱마켓 정식 출시 때 전용 keystore로 교체).
 
 `local.properties`는 각자 컴퓨터에만 있는 파일이다(깃에 안 올라감). 처음 받으면 `local.properties.example`을 복사해 `local.properties`로 이름을 바꾸고 값을 채운다. Pleos TTS/STT를 서버 모드로 쓸 때 필요한 키이고, 비어 있어도 빌드와 나머지 기능은 동작한다.
 
